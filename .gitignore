@@ -1,0 +1,23 @@
+# Openfoot Manager simulator fork — separate git repo
+# (clone separately, or add as a submodule when the env harness depends on it)
+/openfootmanager/
+
+# Harness local state
+/.claude/
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Python (future agent/eval harness)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
