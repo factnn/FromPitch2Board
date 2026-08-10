@@ -75,10 +75,14 @@ Measured with the headless season runner (`ofm-headless`):
 
 - [x] Simulator fork + pinned version + Rust toolchain
 - [x] Headless season runner / determinism probe (`ofm-headless`)
-- [ ] Full determinism (seeded RNG through engine/turn)
-- [ ] `observe()/act()/step()` environment interface
-- [ ] Gate-0 experiment: heuristic vs. strong-LLM baseline
-- [ ] Scenario suite (relegation / rebuild / moneyball / dynasty)
+- [x] **Full determinism** — `ofm_core::rng::set_seed(seed)` reproduces the
+      whole season trajectory; verified by `--check-determinism`
+- [x] **Environment interface** (`crates/clubbench`) — observe / act / step,
+      XI-aware match engine
+- [x] **Gate-0 experiment** — lineup + play-style baselines (`clubbench`)
+- [ ] Gate-0 follow-up: LLM baseline (heuristic vs LLM), fix scenario team
+      selection (managed club is currently always the weakest `teams[0]`)
+- [x] Scenario suite **specs** (`docs/scenarios.md`); env `select_club` pending
 - [ ] Model Track + Agent Track baselines, leaderboard
 
 ## License
