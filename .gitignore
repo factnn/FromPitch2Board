@@ -10,11 +10,13 @@ target/
 **/*.rs.bk
 Cargo.lock.bak
 
-# Python (future agent/eval harness)
+# Python (agent/eval harness + tests)
 __pycache__/
 *.pyc
 .venv/
 venv/
+.pytest_cache/
+.hypothesis/
 
 # Editor / OS
 .idea/
