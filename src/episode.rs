@@ -15,10 +15,11 @@ use domain::league::FixtureStatus;
 use domain::player::{Position, TransferOfferStatus};
 use ofm_core::game::Game;
 use ofm_core::transfers;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// One decision the agent can make at a decision point.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "action", content = "params")]
 pub enum Action {
     /// Act on nothing and advance to the next decision point (the AI default
     /// applies to anything left unhandled).
@@ -182,6 +183,11 @@ impl Episode {
 
     pub fn step_count(&self) -> u64 {
         self.step
+    }
+
+    /// Final evaluation metrics for the current game state (sport/finance/squad).
+    pub fn final_metrics(&self) -> crate::run::ClubMetrics {
+        crate::run::metrics_of(&self.game, self.initial_net_worth, self.net_spend)
     }
 
     pub fn observe(&mut self) -> EpisodeObservation {

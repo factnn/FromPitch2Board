@@ -9,7 +9,7 @@ use ofm_core::game::Game;
 /// Multi-dimension club metrics, all directly readable from the game state.
 /// Sport + finance + squad are the three dimensions the Manager track scores;
 /// each is reported raw AND relative to a reference distribution.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct ClubMetrics {
     pub points: u32,
     pub position: usize,
