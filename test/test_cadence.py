@@ -18,5 +18,5 @@ def test_score_produces_five_dimensions():
     assert r.returncode == 0, r.stderr
     blocks = parse_blocks(r.stdout)
     assert blocks, "no candidate blocks found"
-    for dim in ("points", "balance", "wage_bill", "squad_value", "avg_age"):
+    for dim in ("points", "balance", "wage_bill", "squad_value", "avg_age", "squad_size"):
         assert dim in blocks[0]["rows"], f"missing dimension {dim}"
