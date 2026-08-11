@@ -63,12 +63,30 @@ Measured with the headless season runner (`ofm-headless`):
 
 ## Repository layout
 
+ClubBench is the benchmark layer, self-contained and decoupled from the
+simulator: `ofm_core` (the OpenFoot Manager game logic) is a **pinned git
+dependency**, not forked into this repo.
+
 ```
 /                     benchmark root (this repo)
-├── README.md
-├── CLAUDE.md         working notes for AI agents
-├── the design notes        full design discussion (background, methodology, validity, legal, naming)
-└── openfootmanager/  (NOT tracked here — separate fork repo, pinned ffd7023)
+├── Cargo.toml        env crate — depends on ofm_core via pinned git dep
+├── src/              the environment: env / episode / agents / run / score
+├── crates/ofm-headless/  the headless season probe
+├── test/             pytest suite (one test_xx.py per feature)
+├── docs/             scenario specs and design docs
+├── README.md · CLAUDE.md · the design notes · baseline.md
+```
+
+The simulator is pinned at a fixed commit of `factnn/openfootmanager`
+(see `Cargo.toml`); all experiments use that exact version plus identical
+world snapshots and paired random seeds.
+
+```
+Claude Code / Codex / API agent
+          ↓
+      ClubBench (env + harness + scoring)
+          ↓  ofm_core (pinned git dep)
+  OpenFoot Manager simulation
 ```
 
 ## Status

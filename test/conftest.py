@@ -1,16 +1,17 @@
 """Shared test helpers for ClubBench.
 
 Each feature has its own test_*.py that runs the compiled Rust binaries via
-subprocess and asserts on their output. The binaries must be built first:
+subprocess and asserts on their output. The binaries must be built first
+(they live in this repo, depending on ofm_core via a pinned git dependency):
 
-    cd openfootmanager/src-tauri && cargo build -p clubbench -p ofm-headless
+    cd clubbench-repo && cargo build -p clubbench -p ofm-headless
 """
 
 import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-BIN_DIR = REPO / "openfootmanager" / "src-tauri" / "target" / "debug"
+BIN_DIR = REPO / "target" / "debug"
 CLUBBENCH = BIN_DIR / "clubbench"
 HEADLESS = BIN_DIR / "ofm-headless"
 

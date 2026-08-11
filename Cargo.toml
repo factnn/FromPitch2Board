@@ -1,0 +1,29 @@
+# ClubBench — the benchmark layer. This crate is the environment + harness +
+# scoring; the football simulator (ofm_core) is a pinned git dependency on the
+# OpenFoot Manager fork, NOT forked into this repo.
+[package]
+name = "clubbench"
+version = "0.1.0"
+edition = "2021"
+description = "ClubBench: headless deterministic football-management agent environment + benchmark"
+
+[dependencies]
+ofm_core = { git = "https://github.com/factnn/openfootmanager.git", rev = "40ec2c8a" }
+domain = { git = "https://github.com/factnn/openfootmanager.git", rev = "40ec2c8a" }
+chrono = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.10"
+clap = { version = "4", features = ["derive"] }
+
+[workspace]
+members = ["crates/ofm-headless"]
+
+# Optimize our crates and dependencies even in dev builds — the headless
+# simulation is otherwise order-of-magnitude slower, which dominates episode
+# runtime (mirrors the fork's own dev profile).
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
