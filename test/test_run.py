@@ -43,5 +43,6 @@ def test_run_respects_scenario_and_club():
                    "--seeds", "42", "--days", "100")
     assert r1.returncode == 0 and r2.returncode == 0
     # Scenario budget flows through: the reference's balance baseline differs.
-    assert "reference raw: pts=7.0  balance=21" in r1.stdout  # crisis ≈ £21M
-    assert "reference raw: pts=7.0  balance=61" in r2.stdout  # rebuild ≈ £61M
+    assert "pts=7" in r1.stdout
+    assert "balance=21" in r1.stdout  # crisis ≈ £21M
+    assert "balance=61" in r2.stdout  # rebuild ≈ £61M

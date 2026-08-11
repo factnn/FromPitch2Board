@@ -15,12 +15,12 @@ def _proactive_block(stdout):
 
 
 def test_proactive_buys_players():
-    r = clubbench("score", "--seeds", "42", "--days", "250", "--world", "compact", "--club", "15")
+    r = clubbench("score", "--scenario", "rebuild", "--seeds", "42", "--days", "250", "--world", "compact", "--club", "15")
     assert r.returncode == 0, r.stderr
     block = _proactive_block(r.stdout)
     assert block is not None, "Proactive block not found"
-    # Buying changes the squad: squad_value rises and/or balance drops vs the
-    # reference. At least one of these must be non-zero.
+    # With a £50M budget Proactive buys players → the squad is worth more, and
+    # it shows net spend vs the reference.
     _, _, delta_sv, _, _ = block["rows"]["squad_value"]
-    _, _, delta_bal, _, _ = block["rows"]["balance"]
-    assert abs(delta_sv) > 0.0 or abs(delta_bal) > 0.0
+    _, _, delta_spend, _, _ = block["rows"]["net_spend"]
+    assert delta_sv > 0.0 or delta_spend > 0.0
