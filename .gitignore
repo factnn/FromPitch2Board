@@ -23,3 +23,6 @@ venv/
 .vscode/
 *.swp
 .DS_Store
+
+# Agent run artifacts
+runs/
