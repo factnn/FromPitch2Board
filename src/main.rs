@@ -150,15 +150,14 @@ fn multi_season(
         _ => Box::new(AutoManager::new(domain::team::PlayStyle::Attacking)),
     };
 
-    println!("ClubBench Dynasty — {} seasons, {} days/season, policy={} scenario={} club={} seed={} world={:?} mode={:?}",
-        seasons, season_days, policy_name, scenario, club, seed, world, mode);
-
     let snaps = run_multi_season(seed, &pick, world, &budget, mode, seasons, season_days, policy.as_mut());
 
     if json {
         println!("{}", serde_json::to_string_pretty(&snaps).unwrap_or_default());
         return;
     }
+    println!("ClubBench Dynasty — {} seasons, {} days/season, policy={} scenario={} club={} seed={} world={:?} mode={:?}",
+        seasons, season_days, policy_name, scenario, club, seed, world, mode);
     println!("{:<7} {:>6} {:>5} {:>12} {:>12} {:>7} {:>6} {:>12} {:>12}", "season", "pts", "pos", "balance", "squad_val", "avg_age", "size", "net_value", "net_spend");
     for s in &snaps {
         println!("{:<7} {:>6} {:>5} {:>12} {:>12} {:>7.1} {:>6} {:>12} {:>12}",
