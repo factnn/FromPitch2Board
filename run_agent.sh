@@ -152,7 +152,8 @@ fi
 CONTINUE_PROMPT="The season is not over yet. Continue managing the club: observe, act, and keep playing until the observation reports \"done\": true. Do not summarise or stop early."
 for turn in $(seq 1 $MAX_AGENT_TURNS); do
     echo "[agent] turn $turn: launching $AGENT..."
-    (cd "$RUN_DIR" && IS_SANDBOX=1 "${AGENT_CMD[@]}") >> "$RUN_DIR/agent_output.jsonl" 2>> "$RUN_DIR/agent.log" || true
+    (cd "$RUN_DIR" && IS_SANDBOX=1 "${AGENT_CMD[@]}") 2>> "$RUN_DIR/agent.log" \
+      | python3 "$SCRIPT_DIR/agents/stream_view.py" "$RUN_DIR/agent_output.jsonl" || true
 
     # Check whether the episode is done.
     if python3 agents/mcp_call.py --url "${MCP_URL}" observe 2>/dev/null | grep -q '"done": true'; then
@@ -172,6 +173,11 @@ fi  # end SKIP_AGENT
 echo "[score] collecting result..."
 python3 agents/mcp_call.py --url "${MCP_URL}" score 2>/dev/null > "$RUN_DIR/score.json" || echo "score failed" > "$RUN_DIR/score.json"
 python3 agents/mcp_call.py --url "${MCP_URL}" snapshots 2>/dev/null > "$RUN_DIR/snapshots.json" || true
+
+# ---- token + cost report ----
+echo ""
+echo "[tokens]"
+python3 "$SCRIPT_DIR/agents/token_report.py" "$RUN_DIR/agent_output.jsonl" 2>/dev/null || true
 
 echo ""
 echo "Done. Results in: $RUN_DIR/"
