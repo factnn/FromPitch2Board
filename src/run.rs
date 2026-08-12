@@ -213,3 +213,61 @@ pub fn run_episode_cadence_with_mode(
         goals_against: r.goals_against,
     }
 }
+
+/// One season's end-of-season snapshot, for the multi-season curve.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SeasonSnapshot {
+    pub season: u32,
+    pub points: u32,
+    pub position: usize,
+    pub balance: i64,
+    pub squad_value: u64,
+    pub avg_age: f64,
+    pub squad_size: usize,
+    pub net_value: i64,
+    pub net_spend: i64,
+}
+
+/// Run several seasons in one continuous episode, snapshotting the club's
+/// metrics at every season boundary (every `season_days` game days). The world
+/// rolls over between seasons (fixtures regenerate, standings reset) — this is
+/// the long-horizon Dynasty trajectory.
+pub fn run_multi_season(
+    seed: u64,
+    pick: &env::ClubPick,
+    world: env::WorldSize,
+    budget: &env::ScenarioBudget,
+    mode: env::AgentMode,
+    seasons: u32,
+    season_days: u64,
+    policy: &mut dyn Policy,
+) -> Vec<SeasonSnapshot> {
+    let total_days = season_days * seasons as u64;
+    let mut ep = Episode::new_with_mode(seed, pick, world, budget, mode, total_days);
+    let mut obs = ep.observe();
+    let mut snapshots = Vec::new();
+    let mut next_boundary = season_days;
+    let mut guard = 0u64;
+
+    while !obs.done && guard < 5_000_000 {
+        let action = policy.act(&obs);
+        obs = ep.step(action);
+        if ep.advanced_days() >= next_boundary {
+            let m = ep.final_metrics();
+            snapshots.push(SeasonSnapshot {
+                season: snapshots.len() as u32 + 1,
+                points: m.points,
+                position: m.position,
+                balance: m.balance,
+                squad_value: m.squad_value,
+                avg_age: m.avg_age,
+                squad_size: m.squad_size,
+                net_value: m.net_value,
+                net_spend: m.net_spend,
+            });
+            next_boundary += season_days;
+        }
+        guard += 1;
+    }
+    snapshots
+}

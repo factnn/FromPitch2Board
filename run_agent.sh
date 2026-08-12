@@ -37,6 +37,7 @@ PORT=0
 PORT_SET=false
 BUDGET=""
 SKIP_AGENT=false
+MAX_AGENT_TURNS=5
 
 # ---- parse args ----
 while [[ $# -gt 0 ]]; do
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
         --days) DAYS="$2"; shift 2 ;;
         --port) PORT="$2"; PORT_SET=true; shift 2 ;;
         --budget-usd) BUDGET="$2"; shift 2 ;;
+        --max-turns) MAX_AGENT_TURNS="$2"; shift 2 ;;
         --skip-agent) SKIP_AGENT=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -71,19 +73,6 @@ GOAL_FILE="agents/prompts/goals/${SCENARIO}.md"
 TS=$(date +%Y%m%d_%H%M%S)
 RUN_DIR="runs/${SCENARIO}-club${CLUB}-seed${SEED}-${AGENT}-${MODE}-${TS}"
 mkdir -p "$RUN_DIR"
-
-# ---- build prompt (substitute placeholders) ----
-CLUB_NAME="${SCENARIO} club"
-python3 - "$PROMPT_TEMPLATE" "$GOAL_FILE" "$SCENARIO" "$CLUB_NAME" "$RUN_DIR/prompt.md" <<'PY'
-import sys
-tmpl = open(sys.argv[1]).read()
-goal = open(sys.argv[2]).read().strip()
-prompt = (tmpl
-    .replace("{{SCENARIO_GOAL}}", goal)
-    .replace("{{SCENARIO_NAME}}", sys.argv[3])
-    .replace("{{CLUB}}", sys.argv[4]))
-open(sys.argv[5], "w").write(prompt)
-PY
 
 # ---- .mcp.json for Claude Code / Codex ----
 cat > "$RUN_DIR/.mcp.json" <<JSON
@@ -118,9 +107,23 @@ echo "[setup] MCP server on ${MCP_URL}"
 
 # ---- set up the episode (reset) ----
 echo "[setup] resetting episode..."
-python3 agents/mcp_call.py --url "http://127.0.0.1:${PORT}/mcp" reset \
+python3 agents/mcp_call.py --url "${MCP_URL}" reset \
   "{\"seed\": ${SEED}, \"scenario\": \"${SCENARIO}\", \"club\": ${CLUB}, \"world\": \"${WORLD}\", \"mode\": \"${MODE}\", \"days\": ${DAYS}}" \
   2>/dev/null > "$RUN_DIR/initial_observation.json"
+
+# ---- build prompt with the REAL club name (from the reset observation) ----
+CLUB_NAME=$(python3 -c "import json; print(json.load(open('$RUN_DIR/initial_observation.json')).get('team_name','${SCENARIO} club'))")
+python3 - "$PROMPT_TEMPLATE" "$GOAL_FILE" "$SCENARIO" "$CLUB_NAME" "$RUN_DIR/prompt.md" <<'PY'
+import sys
+tmpl = open(sys.argv[1]).read()
+goal = open(sys.argv[2]).read().strip()
+prompt = (tmpl
+    .replace("{{SCENARIO_GOAL}}", goal)
+    .replace("{{SCENARIO_NAME}}", sys.argv[3])
+    .replace("{{CLUB}}", sys.argv[4]))
+open(sys.argv[5], "w").write(prompt)
+PY
+echo "[setup] prompt built for club: $CLUB_NAME"
 
 # ---- resolve the agent binary ----
 CLAUDE_BIN=$(command -v claude 2>/dev/null || echo /root/.npm-global/bin/claude)
@@ -144,7 +147,6 @@ fi
 # --dangerously-skip-permissions even under root (the flagbench pattern).
 # `claude -p` produces one autonomous response; if the season isn't over it may
 # stop early, so loop a "continue" prompt until the episode reports done.
-MAX_AGENT_TURNS=5
 CONTINUE_PROMPT="The season is not over yet. Continue managing the club: observe, act, and keep playing until the observation reports \"done\": true. Do not summarise or stop early."
 for turn in $(seq 1 $MAX_AGENT_TURNS); do
     echo "[agent] turn $turn: launching $AGENT..."
@@ -164,9 +166,10 @@ for turn in $(seq 1 $MAX_AGENT_TURNS); do
 done
 fi  # end SKIP_AGENT
 
-# ---- collect the final score ----
+# ---- collect the final score + per-season snapshots ----
 echo "[score] collecting result..."
 python3 agents/mcp_call.py --url "${MCP_URL}" score 2>/dev/null > "$RUN_DIR/score.json" || echo "score failed" > "$RUN_DIR/score.json"
+python3 agents/mcp_call.py --url "${MCP_URL}" snapshots 2>/dev/null > "$RUN_DIR/snapshots.json" || true
 
 echo ""
 echo "Done. Results in: $RUN_DIR/"

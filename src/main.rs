@@ -76,6 +76,31 @@ enum Commands {
         #[arg(long, default_value = "manager")]
         mode: String,
     },
+    /// Multi-season Dynasty trajectory — per-season snapshots over several seasons
+    Multi {
+        #[arg(long, default_value_t = 10)]
+        seasons: u32,
+        #[arg(long, default_value_t = 400)]
+        season_days: u64,
+        /// Rule policy to drive the episode (auto|proactive|selling|offersonly|passive)
+        #[arg(long, default_value = "auto")]
+        policy: String,
+        #[arg(long, default_value = "rebuild")]
+        scenario: String,
+        #[arg(long, default_value_t = 15)]
+        club: usize,
+        #[arg(long, default_value_t = 42)]
+        seed: u64,
+        /// World size: medium (default) | standard | compact
+        #[arg(long, default_value = "compact")]
+        world: String,
+        /// Track: manager | coach
+        #[arg(long, default_value = "manager")]
+        mode: String,
+        /// Also print JSON (for the curve plotter)
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() {
@@ -87,6 +112,57 @@ fn main() {
         Commands::Run { seeds, days, world, clubs, scenarios, mode } => {
             run_benchmark(&seeds, days, &world, &clubs, &scenarios, &mode)
         }
+        Commands::Multi { seasons, season_days, policy, scenario, club, seed, world, mode, json } => {
+            multi_season(seasons, season_days, &policy, &scenario, club, seed, &world, &mode, json)
+        }
+    }
+}
+
+/// Run a multi-season Dynasty trajectory and print per-season snapshots.
+fn multi_season(
+    seasons: u32,
+    season_days: u64,
+    policy_name: &str,
+    scenario: &str,
+    club: usize,
+    seed: u64,
+    world_str: &str,
+    mode_str: &str,
+    json: bool,
+) {
+    use clubbench::env::{AgentMode, ClubPick, ScenarioBudget, WorldSize};
+    use clubbench::run::{run_multi_season, SeasonSnapshot};
+
+    let world = match world_str {
+        "standard" => WorldSize::Standard,
+        "compact" => WorldSize::Compact,
+        _ => WorldSize::Medium,
+    };
+    let mode = if mode_str == "coach" { AgentMode::Coach } else { AgentMode::Manager };
+    let budget = ScenarioBudget::by_name(scenario);
+    let pick = ClubPick::Strength(club);
+
+    let mut policy: Box<dyn Policy> = match policy_name {
+        "proactive" => Box::new(ProactiveManager::new(domain::team::PlayStyle::Attacking)),
+        "selling" => Box::new(SellingManager::new(domain::team::PlayStyle::Attacking)),
+        "offersonly" => Box::new(OffersOnlyManager),
+        "passive" => Box::new(PassiveManager),
+        _ => Box::new(AutoManager::new(domain::team::PlayStyle::Attacking)),
+    };
+
+    println!("ClubBench Dynasty — {} seasons, {} days/season, policy={} scenario={} club={} seed={} world={:?} mode={:?}",
+        seasons, season_days, policy_name, scenario, club, seed, world, mode);
+
+    let snaps = run_multi_season(seed, &pick, world, &budget, mode, seasons, season_days, policy.as_mut());
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&snaps).unwrap_or_default());
+        return;
+    }
+    println!("{:<7} {:>6} {:>5} {:>12} {:>12} {:>7} {:>6} {:>12} {:>12}", "season", "pts", "pos", "balance", "squad_val", "avg_age", "size", "net_value", "net_spend");
+    for s in &snaps {
+        println!("{:<7} {:>6} {:>5} {:>12} {:>12} {:>7.1} {:>6} {:>12} {:>12}",
+            s.season, s.points, s.position, s.balance, s.squad_value, s.avg_age, s.squad_size, s.net_value, s.net_spend);
     }
 }
 

@@ -127,6 +127,10 @@ pub struct Episode {
     pub(crate) net_spend: i64,
     horizon_days: u64,
     advanced_days: u64,
+    /// Approximate days per season; a metrics snapshot is recorded each time
+    /// this many days are crossed (for the Dynasty trajectory curve).
+    season_length: u64,
+    snapshots: Vec<crate::run::SeasonSnapshot>,
     /// Offer ids already shown to the agent — new offers (never-seen ids) are
     /// the only offer decision points, so `Continue` doesn't re-stop forever.
     seen_offers: std::collections::HashSet<String>,
@@ -177,8 +181,20 @@ impl Episode {
             net_spend: 0,
             horizon_days,
             advanced_days: 0,
+            season_length: 365,
+            snapshots: Vec::new(),
             seen_offers: Default::default(),
         }
+    }
+
+    /// Game days advanced so far (used for per-season snapshots).
+    pub fn advanced_days(&self) -> u64 {
+        self.advanced_days
+    }
+
+    /// Per-season metric snapshots recorded during the episode (Dynasty curve).
+    pub fn season_snapshots(&self) -> Vec<crate::run::SeasonSnapshot> {
+        self.snapshots.clone()
     }
 
     pub fn step_count(&self) -> u64 {
@@ -352,11 +368,26 @@ impl Episode {
     }
 
     /// Move the world forward one day (expiring stale offers, running the turn
-    /// loop, and playing any user matchday via the XI-aware engine).
+    /// loop, and playing any user matchday via the XI-aware engine). Records a
+    /// per-season metrics snapshot whenever a season boundary is crossed.
     fn advance_one_day(&mut self) {
         transfers::expire_stale_transfer_offers(&mut self.game);
         ofm_core::turn::process_day(&mut self.game);
         self.advanced_days += 1;
+        if self.season_length > 0 && self.advanced_days % self.season_length == 0 {
+            let m = crate::run::metrics_of(&self.game, self.initial_net_worth, self.net_spend);
+            self.snapshots.push(crate::run::SeasonSnapshot {
+                season: (self.advanced_days / self.season_length) as u32,
+                points: m.points,
+                position: m.position,
+                balance: m.balance,
+                squad_value: m.squad_value,
+                avg_age: m.avg_age,
+                squad_size: m.squad_size,
+                net_value: m.net_value,
+                net_spend: m.net_spend,
+            });
+        }
     }
 
     /// A transfer-window "market day": the agent gets a chance to scout and bid

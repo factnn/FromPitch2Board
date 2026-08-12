@@ -85,6 +85,11 @@ impl ClubBenchMcp {
                 "Final evaluation metrics for the current episode (sport / finance / squad), as JSON.",
                 schema(json!({ "type": "object", "properties": {} })),
             ),
+            Tool::new(
+                "snapshots",
+                "Per-season metric snapshots recorded so far in the episode (the Dynasty trajectory curve).",
+                schema(json!({ "type": "object", "properties": {} })),
+            ),
         ]
     }
 
@@ -135,6 +140,12 @@ impl ClubBenchMcp {
         let m = ep.final_metrics();
         serde_json::to_string_pretty(&m).map_err(|e| e.to_string())
     }
+
+    fn tool_snapshots(&self) -> Result<String, String> {
+        let guard = self.episode.lock().unwrap();
+        let ep = guard.as_ref().ok_or("no episode — call reset first")?;
+        serde_json::to_string_pretty(&ep.season_snapshots()).map_err(|e| e.to_string())
+    }
 }
 
 impl ServerHandler for ClubBenchMcp {
@@ -174,6 +185,7 @@ impl ServerHandler for ClubBenchMcp {
                 "observe" => this.tool_observe(),
                 "act" => this.tool_act(args),
                 "score" => this.tool_score(),
+                "snapshots" => this.tool_snapshots(),
                 other => return Err(McpError::invalid_params(format!("unknown tool: {other}"), None)),
             };
             match result {

@@ -57,7 +57,7 @@ def test_mcp_drives_an_episode(server):
                 await session.initialize()
                 tools = await session.list_tools()
                 names = [t.name for t in tools.tools]
-                assert {"reset", "observe", "act", "score"} <= set(names)
+                assert {"reset", "observe", "act", "score", "snapshots"} <= set(names)
 
                 r = await session.call_tool("reset", {
                     "seed": 42, "scenario": "rebuild", "club": 15,
@@ -80,5 +80,13 @@ def test_mcp_drives_an_episode(server):
                 r = await session.call_tool("score", {})
                 m = json.loads(r.content[0].text)
                 assert "points" in m and "net_value" in m and "squad_size" in m
+
+                # snapshots tool returns a valid JSON array (may be empty with a
+                # short horizon that never crosses a season boundary).
+                r = await session.call_tool("snapshots", {})
+                snaps = json.loads(r.content[0].text)
+                assert isinstance(snaps, list)
+                for s in snaps:
+                    assert "season" in s and "points" in s
 
     asyncio.run(drive())
