@@ -56,7 +56,8 @@ impl ClubBenchMcp {
                         "club": { "type": "number", "description": "managed-club strength rank, 0 = weakest" },
                         "world": { "type": "string", "enum": ["compact", "medium", "standard"] },
                         "mode": { "type": "string", "enum": ["coach", "manager"] },
-                        "days": { "type": "number", "description": "episode horizon in game days" }
+                        "days": { "type": "number", "description": "episode horizon in game days" },
+                        "anonymize": { "type": "boolean", "description": "remap clubs/players to synthetic ids (default true)" }
                     },
                     "required": ["seed"]
                 })),
@@ -109,8 +110,12 @@ impl ClubBenchMcp {
         };
         let budget = ScenarioBudget::by_name(scenario);
         let mode = if mode == "coach" { AgentMode::Coach } else { AgentMode::Manager };
+        let anonymize = args.get("anonymize").and_then(Value::as_bool).unwrap_or(true);
 
         let mut ep = Episode::new_with_mode(seed, &pick, world, &budget, mode, days);
+        if anonymize {
+            ep.anonymize_identities();
+        }
         let obs = ep.observe();
         *self.episode.lock().unwrap() = Some(ep);
         serde_json::to_string_pretty(&obs).map_err(|e| e.to_string())

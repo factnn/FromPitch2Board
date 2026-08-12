@@ -38,6 +38,7 @@ PORT_SET=false
 BUDGET=""
 SKIP_AGENT=false
 MAX_AGENT_TURNS=5
+ANON=true
 
 # ---- parse args ----
 while [[ $# -gt 0 ]]; do
@@ -52,6 +53,7 @@ while [[ $# -gt 0 ]]; do
         --port) PORT="$2"; PORT_SET=true; shift 2 ;;
         --budget-usd) BUDGET="$2"; shift 2 ;;
         --max-turns) MAX_AGENT_TURNS="$2"; shift 2 ;;
+        --named) ANON=false; shift ;;
         --skip-agent) SKIP_AGENT=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -108,7 +110,7 @@ echo "[setup] MCP server on ${MCP_URL}"
 # ---- set up the episode (reset) ----
 echo "[setup] resetting episode..."
 python3 agents/mcp_call.py --url "${MCP_URL}" reset \
-  "{\"seed\": ${SEED}, \"scenario\": \"${SCENARIO}\", \"club\": ${CLUB}, \"world\": \"${WORLD}\", \"mode\": \"${MODE}\", \"days\": ${DAYS}}" \
+  "{\"seed\": ${SEED}, \"scenario\": \"${SCENARIO}\", \"club\": ${CLUB}, \"world\": \"${WORLD}\", \"mode\": \"${MODE}\", \"days\": ${DAYS}, \"anonymize\": ${ANON}}" \
   2>/dev/null > "$RUN_DIR/initial_observation.json"
 
 # ---- build prompt with the REAL club name (from the reset observation) ----

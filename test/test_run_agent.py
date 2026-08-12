@@ -43,3 +43,17 @@ def test_skip_agent_pipeline():
     # The score was collected.
     score = json.loads((run_dir / "score.json").read_text())
     assert "points" in score and "net_value" in score and "squad_size" in score
+
+    # Default is anonymous identities: clubs are Club_N, players Player_N.
+    assert obs["team_name"].startswith("Club_")
+    assert obs["squad"][0]["name"].startswith("Player_")
+
+
+def test_named_identities():
+    """--named keeps real identities (the paired diagnostic condition)."""
+    r = _run_agent_skip("--named", "--scenario", "rebuild", "--club", "15", "--seed", "42", "--days", "30")
+    assert r.returncode == 0, r.stderr + r.stdout
+    run_dir = _latest_run_dir(r.stdout)
+    obs = json.loads((run_dir / "initial_observation.json").read_text())
+    # Real (procedurally generated but non-anonymized) names, not Club_N.
+    assert not obs["team_name"].startswith("Club_")

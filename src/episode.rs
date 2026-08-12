@@ -206,6 +206,12 @@ impl Episode {
         crate::run::metrics_of(&self.game, self.initial_net_worth, self.net_spend)
     }
 
+    /// Remap every club/player to an anonymous synthetic identity (the main
+    /// benchmark uses this so agents can't exploit pretrained football names).
+    pub fn anonymize_identities(&mut self) {
+        env::anonymize_identities(&mut self.game);
+    }
+
     pub fn observe(&mut self) -> EpisodeObservation {
         let user_team_id = self.game.manager.team_id.as_deref().unwrap_or_default();
         let team = self.game.teams.iter().find(|t| t.id == user_team_id);

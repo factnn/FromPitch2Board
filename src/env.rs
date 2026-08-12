@@ -313,6 +313,24 @@ pub fn build_game(seed: u64) -> Game {
     game
 }
 
+/// Remap every club and player to an anonymous synthetic identity.
+///
+/// The main benchmark uses anonymized identities so agents cannot lean on
+/// pretrained football knowledge ("this club is Manchester City, this player
+/// is Haaland") — the world becomes `Club_01..` and `Player_001..`. The same
+/// world with vs without this mapping is the "identity-revealed" paired
+/// diagnostic. Actions reference player ids, so lineups/offers still work.
+pub fn anonymize_identities(game: &mut Game) {
+    for (i, team) in game.teams.iter_mut().enumerate() {
+        team.name = format!("Club_{:02}", i + 1);
+        team.short_name = format!("C{:02}", i + 1);
+    }
+    for (i, player) in game.players.iter_mut().enumerate() {
+        player.match_name = format!("Player_{:03}", i + 1);
+        player.full_name = format!("Player_{:03}", i + 1);
+    }
+}
+
 /// The club's total net worth: squad market value + bank balance.
 pub fn net_worth(game: &Game) -> i64 {
     let team_id = game.manager.team_id.as_deref().unwrap_or_default();
