@@ -27,8 +27,8 @@ venv/
 # Agent run artifacts
 runs/
 
-# Reference pack PDFs (large binaries; bib/README/urls are tracked)
-/ClubBench_reference_pack/papers/
+# Reference packs — local research material, not part of the repo
+/ClubBench_reference_pack*/
 
 # Scratch
 flashinferbench.pdf
