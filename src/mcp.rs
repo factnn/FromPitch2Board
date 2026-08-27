@@ -25,6 +25,91 @@ use crate::episode::{Action, Episode};
 #[derive(Clone)]
 pub struct ClubBenchMcp {
     episode: Arc<Mutex<Option<Episode>>>,
+    /// Metadata of the most recent reset, needed to build a TrajectoryRecord
+    /// when `dump` is called.
+    meta: Arc<Mutex<Option<crate::run::TrajectoryMeta>>>,
+    /// Per-step tool-call log for the current episode (action, date, result,
+    /// server latency, success). This is the lossless decision trace for
+    /// off-the-shelf agents (cc / codex), whose LLM internals we don't control.
+    step_log: Arc<Mutex<Option<Vec<serde_json::Value>>>>,
+    /// Checkpoint directory of the current episode (game db + counters), set
+    /// by reset. Every CHECKPOINT_STEPS acts the server persists the episode
+    /// here so any interrupted run — single-season or 10Y — can resume.
+    cp_dir: Arc<Mutex<Option<String>>>,
+}
+
+/// How often (in acts) the episode is checkpointed to disk.
+pub const CHECKPOINT_STEPS: u64 = 8;
+
+/// Persist the episode (game db + counters) into `cp_dir` so an interrupted
+/// run can resume bit-identically. Fails loudly to stderr but never breaks
+/// the agent loop — a lost checkpoint only costs the last few steps.
+fn write_checkpoint(cp_dir: &str, seed: u64, ep: &Episode) -> Result<(), String> {
+    let dir = std::path::Path::new(cp_dir);
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let db_path = dir.join("game.db");
+    let db = db::game_database::GameDatabase::open(&db_path)?;
+    db::game_persistence::GamePersistenceWriter::write_game(&db, &ep.game, "checkpoint", "checkpoint")?;
+    let (horizon_days, target_seasons, seasons_completed, advanced_days, step,
+         initial_net_worth, net_spend, snapshots, seen_offers, manager_firings,
+         user_team_id) = ep.checkpoint_fields();
+    let state = json!({
+        "seed": seed,
+        "horizon_days": horizon_days,
+        "target_seasons": target_seasons,
+        "seasons_completed": seasons_completed,
+        "advanced_days": advanced_days,
+        "step": step,
+        "initial_net_worth": initial_net_worth,
+        "net_spend": net_spend,
+        "snapshots": snapshots,
+        "seen_offers": seen_offers,
+        "manager_firings": manager_firings,
+        "user_team_id": user_team_id,
+    });
+    std::fs::write(dir.join("state.json"), serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
+}
+
+/// Load a checkpoint if one exists; None = start fresh.
+fn read_checkpoint(
+    cp_dir: &str,
+    seed: u64,
+    mode: crate::env::AgentMode,
+) -> Option<Episode> {
+    let dir = std::path::Path::new(cp_dir);
+    let state_path = dir.join("state.json");
+    let db_path = dir.join("game.db");
+    if !state_path.exists() || !db_path.exists() {
+        return None;
+    }
+    let state: Value = serde_json::from_str(&std::fs::read_to_string(&state_path).ok()?).ok()?;
+    if state.get("seed").and_then(Value::as_u64) != Some(seed) {
+        eprintln!("[mcp] checkpoint seed mismatch — starting fresh");
+        return None;
+    }
+    let db = db::game_database::GameDatabase::open(&db_path).ok()?;
+    let game = db::game_persistence::GamePersistenceReader::read_game(&db).ok()?;
+    let snapshots: Vec<crate::run::SeasonSnapshot> =
+        serde_json::from_value(state.get("snapshots")?.clone()).ok()?;
+    let seen_offers: std::collections::HashSet<String> =
+        serde_json::from_value(state.get("seen_offers")?.clone()).ok()?;
+    Some(Episode::resume(
+        seed,
+        game,
+        mode,
+        state.get("horizon_days")?.as_u64()?,
+        state.get("target_seasons")?.as_u64()? as u32,
+        state.get("seasons_completed")?.as_u64()? as u32,
+        state.get("advanced_days")?.as_u64()?,
+        state.get("step")?.as_u64()?,
+        state.get("initial_net_worth")?.as_i64()?,
+        state.get("net_spend")?.as_i64()?,
+        snapshots,
+        seen_offers,
+        state.get("manager_firings")?.as_u64()? as u32,
+        state.get("user_team_id")?.as_str()?.to_string(),
+    ))
 }
 
 impl Default for ClubBenchMcp {
@@ -37,6 +122,9 @@ impl ClubBenchMcp {
     pub fn new() -> Self {
         Self {
             episode: Arc::new(Mutex::new(None)),
+            meta: Arc::new(Mutex::new(None)),
+            step_log: Arc::new(Mutex::new(None)),
+            cp_dir: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -91,6 +179,17 @@ impl ClubBenchMcp {
                 "Per-season metric snapshots recorded so far in the episode (the Dynasty trajectory curve).",
                 schema(json!({ "type": "object", "properties": {} })),
             ),
+            Tool::new(
+                "dump",
+                "Persist the current episode (final game state + metadata) to a TrajectoryRecord JSON file at the given path, so it can be re-scored later without re-running the agent.",
+                schema(json!({
+                    "type": "object",
+                    "properties": {
+                        "path": { "type": "string", "description": "absolute output path for trajectory.json" }
+                    },
+                    "required": ["path"]
+                })),
+            ),
         ]
     }
 
@@ -101,6 +200,8 @@ impl ClubBenchMcp {
         let world = args.get("world").and_then(Value::as_str).unwrap_or("medium");
         let mode = args.get("mode").and_then(Value::as_str).unwrap_or("manager");
         let days = args.get("days").and_then(Value::as_u64).unwrap_or(400);
+        let seasons = args.get("seasons").and_then(Value::as_u64).unwrap_or(1) as u32;
+        let cp_dir = args.get("cp_dir").and_then(Value::as_str).map(String::from);
 
         let pick = ClubPick::Strength(club);
         let world = match world {
@@ -109,16 +210,85 @@ impl ClubBenchMcp {
             _ => WorldSize::Medium,
         };
         let budget = ScenarioBudget::by_name(scenario);
-        let mode = if mode == "coach" { AgentMode::Coach } else { AgentMode::Manager };
+        let mode = match mode {
+            "coach" => AgentMode::Coach,
+            "recruiter" => AgentMode::Recruiter,
+            _ => AgentMode::Manager,
+        };
         let anonymize = args.get("anonymize").and_then(Value::as_bool).unwrap_or(true);
 
-        let mut ep = Episode::new_with_mode(seed, &pick, world, &budget, mode, days);
+        let mut ep = match &cp_dir {
+            // Checkpoint resume: an interrupted run continues bit-identically
+            // (keyed RNG is re-seeded from the ORIGINAL episode seed).
+            Some(dir) => match read_checkpoint(dir, seed, mode) {
+                Some(e) => {
+                    eprintln!("[mcp] resumed episode from checkpoint {dir} (step {})", e.step_count());
+                    e
+                }
+                None => Episode::new_with_mode_seasons(seed, &pick, world, &budget, mode, days, seasons),
+            },
+            None => Episode::new_with_mode_seasons(seed, &pick, world, &budget, mode, days, seasons),
+        };
         if anonymize {
             ep.anonymize_identities();
         }
         let obs = ep.observe();
+        *self.cp_dir.lock().unwrap() = cp_dir;
         *self.episode.lock().unwrap() = Some(ep);
+        *self.step_log.lock().unwrap() = Some(Vec::new());
+        *self.meta.lock().unwrap() = Some(crate::run::TrajectoryMeta {
+            seed,
+            scenario: scenario.to_string(),
+            club,
+            world: format!("{world:?}"),
+            mode: format!("{mode:?}"),
+            agent: "unknown".to_string(), // dump overrides this via its args
+            horizon_days: days,
+        });
         serde_json::to_string_pretty(&obs).map_err(|e| e.to_string())
+    }
+
+    fn tool_dump(&self, args: Value) -> Result<String, String> {
+        use crate::run::TrajectoryRecord;
+        let path = args.get("path").and_then(Value::as_str).ok_or("missing path")?;
+        let agent = args.get("agent").and_then(Value::as_str).unwrap_or("unknown");
+        let (ep_guard, meta_guard) = (self.episode.lock().unwrap(), self.meta.lock().unwrap());
+        let ep = ep_guard.as_ref().ok_or("no episode — call reset first")?;
+        let meta = meta_guard.as_ref().ok_or("no episode — call reset first")?;
+        let record = TrajectoryRecord {
+            seed: meta.seed,
+            scenario: meta.scenario.clone(),
+            club: meta.club,
+            world: meta.world.clone(),
+            mode: meta.mode.clone(),
+            agent: agent.to_string(),
+            horizon_days: meta.horizon_days,
+            initial_net_worth: ep.initial_net_worth,
+            net_spend: ep.net_spend,
+            snapshots: ep.season_snapshots(),
+            final_game: ep.game.clone(),
+        };
+        let json = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
+        std::fs::write(path, json).map_err(|e| format!("write {path}: {e}"))?;
+        // Lossless step-level tool trace → trajectory.jsonl (sibling of the
+        // trajectory.json the caller asked for). The harness (llm_agent.py)
+        // writes its own richer trajectory.jsonl with LLM token/latency data;
+        // if it already exists, keep it — don't overwrite with server-side
+        // timings. This file is only authoritative for off-the-shelf agents
+        // (cc / codex) whose LLM internals we don't control.
+        let jsonl_path = std::path::Path::new(path).with_extension("jsonl");
+        if jsonl_path.exists() {
+            return Ok(format!("trajectory written to {path} (trajectory.jsonl kept)"));
+        }
+        if let Some(log) = self.step_log.lock().unwrap().as_ref() {
+            let lines: String = log
+                .iter()
+                .map(|v| serde_json::to_string(v).unwrap_or_default())
+                .collect::<Vec<_>>()
+                .join("\n");
+            std::fs::write(&jsonl_path, lines + "\n").map_err(|e| format!("write {jsonl_path:?}: {e}"))?;
+        }
+        Ok(format!("trajectory written to {path}"))
     }
 
     fn tool_observe(&self) -> Result<String, String> {
@@ -135,7 +305,37 @@ impl ClubBenchMcp {
         .map_err(|e| format!("invalid action JSON: {e}"))?;
         let mut guard = self.episode.lock().unwrap();
         let ep = guard.as_mut().ok_or("no episode — call reset first")?;
+        let log_action = action.clone();
         let obs = ep.step(action);
+        // Periodic checkpoint: every CHECKPOINT_STEPS acts, persist the
+        // episode so an interrupted run (any horizon) can resume instead of
+        // restarting from season 1.
+        if obs.step % CHECKPOINT_STEPS == 0 {
+            if let Some(dir) = self.cp_dir.lock().unwrap().as_ref() {
+                let meta = self.meta.lock().unwrap();
+                let seed = meta.as_ref().map(|m| m.seed).unwrap_or(0);
+                drop(meta);
+                if let Err(e) = write_checkpoint(dir, seed, ep) {
+                    eprintln!("[mcp] checkpoint write failed: {e}");
+                }
+            }
+        }
+        if let Some(log) = self.step_log.lock().unwrap().as_mut() {
+            log.push(json!({
+                "step": obs.step,
+                "date": obs.date,
+                "action": log_action,
+                "result": obs.last_action_result,
+                // Per-step LLM latency/tokens are written by the harness that
+                // controls the model (llm_agent.py); the env server cannot
+                // measure them, so they stay null for off-the-shelf agents.
+                "latency_ms": null,
+                "input_tokens": null,
+                "output_tokens": null,
+                "cache_read_tokens": null,
+                "tool_success": true,
+            }));
+        }
         serde_json::to_string_pretty(&obs).map_err(|e| e.to_string())
     }
 
@@ -191,6 +391,7 @@ impl ServerHandler for ClubBenchMcp {
                 "act" => this.tool_act(args),
                 "score" => this.tool_score(),
                 "snapshots" => this.tool_snapshots(),
+                "dump" => this.tool_dump(args),
                 other => return Err(McpError::invalid_params(format!("unknown tool: {other}"), None)),
             };
             match result {

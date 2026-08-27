@@ -12,7 +12,7 @@ def test_run_produces_leaderboard():
     assert "ClubBench Benchmark" in out
     assert "=== scenario=crisis" in out
     assert "reference raw:" in out          # the difficulty anchor
-    for cand in ("Proactive", "Selling", "Passive"):
+    for cand in ("RandomManager", "Proactive", "Selling", "Passive"):
         assert cand in out
     assert "=== overall: mean Z" in out     # the consolidated leaderboard
 
@@ -22,8 +22,9 @@ def test_run_coach_mode():
                   "--scenarios", "crisis", "--seeds", "42", "--days", "150")
     assert r.returncode == 0, r.stderr
     assert "mode=Coach" in r.stdout
-    assert "reference = CoachBestXI" in r.stdout
+    assert "reference = GreedyCoach" in r.stdout
     # Coach-track candidates present; transfers frozen.
+    assert "GreedyCoach" in r.stdout
     assert "CoachBestXI" in r.stdout
     assert "CoachWorst" in r.stdout
 
@@ -43,6 +44,6 @@ def test_run_respects_scenario_and_club():
                    "--seeds", "42", "--days", "100")
     assert r1.returncode == 0 and r2.returncode == 0
     # Scenario budget flows through: the reference's balance baseline differs.
-    assert "pts=7" in r1.stdout
+    assert "pts=24" in r1.stdout
     assert "balance=21" in r1.stdout  # crisis ≈ £21M
-    assert "balance=61" in r2.stdout  # rebuild ≈ £61M
+    assert "balance=47" in r2.stdout  # rebuild ≈ £48M (Greedy reinvests)

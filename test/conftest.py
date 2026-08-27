@@ -46,9 +46,14 @@ def parse_blocks(stdout):
             current = {"name": line.strip("= ").split(" vs ")[0], "rows": {}}
         elif current is not None and line and not line.startswith("dim"):
             parts = line.split()
-            # dim, cand μ, ref μ, Δ, Δ±CI, Z  →  6 tokens
+            # dim, cand μ, ref μ, Δ, Δ±CI, Z  →  6 tokens. Diagnostic dims (or
+            # dims with no identifiable calibration variance) have Z = "—",
+            # stored as None; the raw/Δ columns are still floats.
             if len(parts) == 6:
-                current["rows"][parts[0]] = tuple(float(x) for x in parts[1:])
+                if parts[5] == "—":
+                    current["rows"][parts[0]] = tuple(float(x) for x in parts[1:5]) + (None,)
+                else:
+                    current["rows"][parts[0]] = tuple(float(x) for x in parts[1:])
     if current is not None:
         blocks.append(current)
     return blocks

@@ -19,8 +19,8 @@ def test_proactive_buys_players():
     assert r.returncode == 0, r.stderr
     block = _proactive_block(r.stdout)
     assert block is not None, "Proactive block not found"
-    # With a £50M budget Proactive buys players → the squad is worth more, and
-    # it shows net spend vs the reference.
+    # With a £50M budget Proactive buys players → the squad is worth more than
+    # the reference's, while staying inside the budget (no violation).
     _, _, delta_sv, _, _ = block["rows"]["squad_value"]
-    _, _, delta_spend, _, _ = block["rows"]["net_spend"]
-    assert delta_sv > 0.0 or delta_spend > 0.0
+    assert delta_sv > 0.0
+    assert block["rows"]["transfer_budget_violation"][0] == 0.0

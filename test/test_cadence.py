@@ -13,10 +13,14 @@ def test_cadence_produces_trajectory():
     assert "avg_steps" in r.stdout
 
 
-def test_score_produces_five_dimensions():
+def test_score_produces_dimensions():
     r = clubbench("score", "--seeds", "42", "--days", "150", "--world", "compact", "--club", "0")
     assert r.returncode == 0, r.stderr
     blocks = parse_blocks(r.stdout)
     assert blocks, "no candidate blocks found"
-    for dim in ("points", "net_value", "net_spend", "wage_bill", "squad_value", "avg_age", "squad_size"):
+    # the design notes §1 structure: directional (points/net_value/squad_value),
+    # budget-constraint (violations), and target-range (squad_size) are scored;
+    # avg_age is diagnostic — reported raw with Z = None.
+    for dim in ("points", "net_value", "squad_value", "transfer_budget_violation", "wage_budget_violation", "squad_size"):
         assert dim in blocks[0]["rows"], f"missing dimension {dim}"
+    assert blocks[0]["rows"]["avg_age"][4] is None  # diagnostic → no Z

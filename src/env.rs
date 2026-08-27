@@ -1,6 +1,6 @@
 //! The environment: build a game, observe it, act on it, advance time.
 
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, TimeZone, Utc};
 use domain::league::{CompetitionFormat, CompetitionScope, CompetitionType, FixtureStatus, League};
 use domain::manager::Manager;
 use domain::player::Position;
@@ -140,9 +140,13 @@ pub enum WorldSize {
 /// Which track the episode exercises. `Coach` restricts the agent to matchday
 /// decisions (lineup/tactics) — transfers/scouting are frozen, so the env only
 /// stops at matchdays and hides the market. `Manager` unlocks the full market.
+/// `Recruiter` is the Composition-Ladder middle rung (C1): Coach decisions +
+/// scouting/buying, but NO selling / offer management — the controlled step
+/// between Coach and Manager.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AgentMode {
     Coach,
+    Recruiter,
     Manager,
 }
 
@@ -176,9 +180,10 @@ impl ScenarioBudget {
     pub fn rebuild() -> Self {
         Self { finance: 60_000_000, transfer_budget: 50_000_000, wage_budget: 3_000_000 }
     }
-    /// Title contender — top-tier finances.
+    /// Title contender — top-tier finances (deliberately the most lavish, so
+    /// the four archetypes span a wide, differentiated budget ladder).
     pub fn title() -> Self {
-        Self { finance: 100_000_000, transfer_budget: 60_000_000, wage_budget: 3_500_000 }
+        Self { finance: 120_000_000, transfer_budget: 100_000_000, wage_budget: 4_000_000 }
     }
 
     pub fn by_name(name: &str) -> ScenarioBudget {
@@ -187,6 +192,29 @@ impl ScenarioBudget {
             "moneyball" => Self::moneyball(),
             "title" => Self::title(),
             _ => Self::rebuild(),
+        }
+    }
+
+    /// The scenario name this budget corresponds to (for trajectory metadata).
+    pub fn name(&self) -> &'static str {
+        match self.transfer_budget {
+            5_000_000 => "crisis",
+            15_000_000 => "moneyball",
+            100_000_000 => "title",
+            _ => "rebuild",
+        }
+    }
+
+    /// The archetype's fixed club-strength rank (the design notes §scenario): each
+    /// scenario is a coherent management situation — a specific squad state +
+    /// budget + mandate — rather than an arbitrary (tier × budget) grid cell.
+    /// crisis = weakest squad, moneyball = mid, rebuild = upper-mid, title = elite.
+    pub fn club_rank(name: &str) -> usize {
+        match name.trim().to_lowercase().as_str() {
+            "crisis" => 5,
+            "moneyball" => 40,
+            "rebuild" => 75,
+            _ => 110, // title (elite)
         }
     }
 }
@@ -482,4 +510,89 @@ pub fn user_fixture_index(game: &Game) -> Option<usize> {
 /// user's lineup decisions are respected.
 pub fn advance_day(game: &mut Game) {
     turn::process_day(game);
+}
+
+/// Minimal headless-safe season rollover (v1 Dynasty): regenerate next-season
+/// fixtures IN PLACE for every competition, preserving identity, name and
+/// participants; standings reset, season + 1.
+///
+/// Deliberately does NOT do promotion/relegation, prize money or team-history
+/// bookkeeping — the app-level `process_end_of_season` (which does all that) is
+/// not headless-safe: on a second rollover of a full generated world it drops
+/// the user's team from `game.teams` (debugged 2026-08-13). This minimal
+/// version gives Dynasty the continuity it needs — squad, finances and the
+/// clock all carry over, and a fresh fixture list schedules for the new season.
+pub fn rollover_season(game: &mut Game) {
+    let clock_date = game.clock.current_date.date_naive();
+    let mut competitions = std::mem::take(&mut game.competitions);
+    for comp in competitions.iter_mut() {
+        let next_season = comp.season + 1;
+        // The new season starts one year after this season's first fixture —
+        // but never before the clock (a winter league would otherwise schedule
+        // fixtures in the past, which would never be played and stall the
+        // season forever).
+        let prev_start = comp
+            .fixtures
+            .iter()
+            .filter_map(|f| chrono::NaiveDate::parse_from_str(&f.date, "%Y-%m-%d").ok())
+            .min();
+        let start = prev_start
+            .map(|d| (d + chrono::Duration::days(365)).max(clock_date + chrono::Duration::days(7)))
+            .unwrap_or(clock_date + chrono::Duration::days(7));
+        let start_dt = DateTime::<Utc>::from_naive_utc_and_offset(
+            start.and_hms_opt(0, 0, 0).unwrap(),
+            Utc,
+        );
+        match comp.rules.format {
+            CompetitionFormat::LeagueTable => {
+                ofm_core::schedule::regenerate_league_for_season(comp, next_season, start_dt)
+            }
+            _ => ofm_core::schedule::regenerate_knockout_for_season(comp, next_season, start_dt),
+        }
+    }
+    game.competitions = competitions;
+    game.sync_legacy_league();
+    ofm_core::season_context::refresh_game_context(game);
+
+    // Top up squads that drained below a minimum (the sim has no automatic
+    // replenishment; over long horizons contract expiries + retirements would
+    // leave a club with zero players and crash the match engine). Youth-academy
+    // recruits are the realistic replenishment mechanism — applied uniformly to
+    // EVERY club, so it stays fair.
+    const MIN_SQUAD: usize = 18;
+    let current_year = game.clock.current_date.year() as u32;
+    let teams_snapshot: Vec<domain::team::Team> = game.teams.clone();
+    for team in &teams_snapshot {
+        let mut count = game
+            .players
+            .iter()
+            .filter(|p| p.team_id.as_deref() == Some(&team.id))
+            .count();
+        let mut guard = 0;
+        while count < MIN_SQUAD && guard < 40 {
+            // Recruit for the position group with the fewest players.
+            let mut per_group: std::collections::HashMap<Position, usize> = Default::default();
+            for p in game
+                .players
+                .iter()
+                .filter(|p| p.team_id.as_deref() == Some(&team.id))
+            {
+                *per_group.entry(p.position.to_group_position()).or_insert(0) += 1;
+            }
+            let target = [
+                Position::Goalkeeper,
+                Position::Defender,
+                Position::Midfielder,
+                Position::Forward,
+            ]
+            .iter()
+            .min_by_key(|g| per_group.get(g).copied().unwrap_or(0))
+            .cloned();
+            let recruit =
+                ofm_core::generator::generate_youth_academy_recruit(team, target.as_ref(), current_year);
+            game.players.push(recruit);
+            count += 1;
+            guard += 1;
+        }
+    }
 }

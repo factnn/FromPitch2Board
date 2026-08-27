@@ -191,6 +191,69 @@ pub fn run_episode_cadence_with_mode(
     horizon_days: u64,
     policy: &mut dyn Policy,
 ) -> CadenceResult {
+    run_episode_cadence_recorded(seed, pick, world, budget, mode, budget.name(), horizon_days, policy).0
+}
+
+/// A persisted episode: the final game state plus the metadata needed to
+/// (re-)score it later. Scoring is decoupled from trajectory generation — any
+/// scoring version (new dimensions, calibration-set Z, …) can be applied to an
+/// existing trajectory without re-running the agent.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TrajectoryRecord {
+    pub seed: u64,
+    pub scenario: String,
+    pub club: usize,
+    pub world: String,
+    /// "Coach" or "Manager"
+    pub mode: String,
+    /// Which agent produced this trajectory (llm / cc / codex / greedy / ...),
+    /// needed to group coach + manager runs for the composition gap.
+    #[serde(default = "default_agent")]
+    pub agent: String,
+    pub horizon_days: u64,
+    pub initial_net_worth: i64,
+    pub net_spend: i64,
+    pub snapshots: Vec<SeasonSnapshot>,
+    pub final_game: Game,
+}
+
+fn default_agent() -> String {
+    "unknown".to_string()
+}
+
+impl TrajectoryRecord {
+    /// The 7-dimension metrics for this trajectory (any scoring version can be
+    /// layered on top of these raw values).
+    pub fn metrics(&self) -> ClubMetrics {
+        metrics_of(&self.final_game, self.initial_net_worth, self.net_spend)
+    }
+}
+
+/// The reset metadata needed to build a [`TrajectoryRecord`] (used by the MCP
+/// server's `dump` tool, which serializes the live episode).
+#[derive(Debug, Clone)]
+pub struct TrajectoryMeta {
+    pub seed: u64,
+    pub scenario: String,
+    pub club: usize,
+    pub world: String,
+    pub mode: String,
+    pub agent: String,
+    pub horizon_days: u64,
+}
+
+/// Like [`run_episode_cadence_with_mode`], but also returns the persisted
+/// trajectory record so the run can be re-scored without re-running.
+pub fn run_episode_cadence_recorded(
+    seed: u64,
+    pick: &env::ClubPick,
+    world: env::WorldSize,
+    budget: &env::ScenarioBudget,
+    mode: env::AgentMode,
+    scenario: &str,
+    horizon_days: u64,
+    policy: &mut dyn Policy,
+) -> (CadenceResult, TrajectoryRecord) {
     let mut ep = Episode::new_with_mode(seed, pick, world, budget, mode, horizon_days);
     let mut obs = ep.observe();
     let mut guard = 0u64;
@@ -201,7 +264,24 @@ pub fn run_episode_cadence_with_mode(
     }
 
     let r = result_of(&ep.game, seed, ep.initial_net_worth, ep.net_spend);
-    CadenceResult {
+    let club = match pick {
+        env::ClubPick::Strength(rank) => *rank,
+        env::ClubPick::Index(i) => *i,
+    };
+    let record = TrajectoryRecord {
+        seed,
+        scenario: scenario.to_string(),
+        club,
+        world: format!("{world:?}"),
+        mode: format!("{mode:?}"),
+        agent: policy.name().to_string(),
+        horizon_days,
+        initial_net_worth: ep.initial_net_worth,
+        net_spend: ep.net_spend,
+        snapshots: ep.season_snapshots(),
+        final_game: ep.game.clone(),
+    };
+    let result = CadenceResult {
         seed,
         steps: ep.step_count(),
         metrics: r.metrics,
@@ -211,11 +291,12 @@ pub fn run_episode_cadence_with_mode(
         lost: r.lost,
         goals_for: r.goals_for,
         goals_against: r.goals_against,
-    }
+    };
+    (result, record)
 }
 
 /// One season's end-of-season snapshot, for the multi-season curve.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SeasonSnapshot {
     pub season: u32,
     pub points: u32,
@@ -229,9 +310,10 @@ pub struct SeasonSnapshot {
 }
 
 /// Run several seasons in one continuous episode, snapshotting the club's
-/// metrics at every season boundary (every `season_days` game days). The world
-/// rolls over between seasons (fixtures regenerate, standings reset) — this is
-/// the long-horizon Dynasty trajectory.
+/// metrics at every REAL season boundary (league complete) and rolling the
+/// world over via [`env::rollover_season`]. The squad, finances and clock carry
+/// over between seasons — this is the long-horizon Dynasty trajectory.
+/// `season_days` is only a safety cap on the total episode length.
 pub fn run_multi_season(
     seed: u64,
     pick: &env::ClubPick,
@@ -242,17 +324,17 @@ pub fn run_multi_season(
     season_days: u64,
     policy: &mut dyn Policy,
 ) -> Vec<SeasonSnapshot> {
-    let total_days = season_days * seasons as u64;
+    let total_days = season_days * seasons as u64; // outer safety cap
     let mut ep = Episode::new_with_mode(seed, pick, world, budget, mode, total_days);
     let mut obs = ep.observe();
     let mut snapshots = Vec::new();
-    let mut next_boundary = season_days;
     let mut guard = 0u64;
 
-    while !obs.done && guard < 5_000_000 {
+    while ep.advanced_days() < total_days && guard < 5_000_000 {
         let action = policy.act(&obs);
         obs = ep.step(action);
-        if ep.advanced_days() >= next_boundary {
+        guard += 1;
+        if ep.season_complete() {
             let m = ep.final_metrics();
             snapshots.push(SeasonSnapshot {
                 season: snapshots.len() as u32 + 1,
@@ -265,9 +347,11 @@ pub fn run_multi_season(
                 net_value: m.net_value,
                 net_spend: m.net_spend,
             });
-            next_boundary += season_days;
+            if snapshots.len() >= seasons as usize {
+                break;
+            }
+            env::rollover_season(&mut ep.game);
         }
-        guard += 1;
     }
     snapshots
 }

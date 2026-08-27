@@ -114,6 +114,10 @@ pub struct EpisodeObservation {
     pub scout_reports: Vec<ScoutReportView>,
     pub scouting_in_progress: Vec<ScoutingView>,
     pub transfer_window_open: bool,
+    /// Human-readable outcome of the previous action (e.g. "Bid of £5.5M for
+    /// Player_12: REJECTED."). `None` on the very first observation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_action_result: Option<String>,
     pub done: bool,
 }
 
@@ -127,13 +131,26 @@ pub struct Episode {
     pub(crate) net_spend: i64,
     horizon_days: u64,
     advanced_days: u64,
-    /// Approximate days per season; a metrics snapshot is recorded each time
-    /// this many days are crossed (for the Dynasty trajectory curve).
-    season_length: u64,
+    /// How many seasons the episode spans (1 = classic single season, 3 = C
+    /// 3Y, 10 = E 10Y). At every REAL season boundary the world rolls over
+    /// (squad/finances/clock carry) until `target_seasons` is reached.
+    target_seasons: u32,
+    seasons_completed: u32,
+    /// Metrics snapshot recorded at each season boundary (Dynasty curve).
     snapshots: Vec<crate::run::SeasonSnapshot>,
     /// Offer ids already shown to the agent — new offers (never-seen ids) are
     /// the only offer decision points, so `Continue` doesn't re-stop forever.
     seen_offers: std::collections::HashSet<String>,
+    /// Outcome of the most recent action, surfaced in the next observation so
+    /// the agent sees what happened (bid rejected/accepted, scout sent, ...).
+    last_action_result: Option<String>,
+    /// The club the agent manages for the WHOLE episode. The sim's daily loop
+    /// can fire the manager for bad results (`check_manager_firing` clears
+    /// `manager.team_id`, which zeroes every metric); in the benchmark the
+    /// board never fires the agent mid-episode, so we re-hire each time and
+    /// count the firings (a potential "would have been fired" metric).
+    user_team_id: String,
+    manager_firings: u32,
 }
 
 impl Episode {
@@ -170,10 +187,26 @@ impl Episode {
         mode: env::AgentMode,
         horizon_days: u64,
     ) -> Self {
+        Self::new_with_mode_seasons(seed, pick, world, budget, mode, horizon_days, 1)
+    }
+
+    /// Same as [`new_with_mode`] but spanning `seasons` seasons (1 = classic
+    /// single season, 3 = C 3Y, 10 = E 10Y). `horizon_days` is the absolute
+    /// safety cap on episode length.
+    pub fn new_with_mode_seasons(
+        seed: u64,
+        pick: &env::ClubPick,
+        world: env::WorldSize,
+        budget: &env::ScenarioBudget,
+        mode: env::AgentMode,
+        horizon_days: u64,
+        seasons: u32,
+    ) -> Self {
         ofm_core::rng::set_seed(seed);
         let game = env::build_game_for_club_with(seed, pick, world, budget);
         let initial_net_worth = env::net_worth(&game);
         Self {
+            user_team_id: game.manager.team_id.clone().unwrap_or_default(),
             game,
             step: 0,
             mode,
@@ -181,15 +214,73 @@ impl Episode {
             net_spend: 0,
             horizon_days,
             advanced_days: 0,
-            season_length: 365,
+            target_seasons: seasons.max(1),
+            seasons_completed: 0,
             snapshots: Vec::new(),
             seen_offers: Default::default(),
+            last_action_result: None,
+            manager_firings: 0,
+        }
+    }
+
+    /// Resume an interrupted episode from a checkpoint (game state + counters).
+    /// The keyed RNG is re-seeded with the ORIGINAL episode seed so the
+    /// continuation is bit-identical to an uninterrupted run (day/match keys
+    /// derive from the seed, not from how many steps happened before).
+    #[allow(clippy::too_many_arguments)]
+    pub fn resume(
+        seed: u64,
+        game: Game,
+        mode: env::AgentMode,
+        horizon_days: u64,
+        target_seasons: u32,
+        seasons_completed: u32,
+        advanced_days: u64,
+        step: u64,
+        initial_net_worth: i64,
+        net_spend: i64,
+        snapshots: Vec<crate::run::SeasonSnapshot>,
+        seen_offers: std::collections::HashSet<String>,
+        manager_firings: u32,
+        user_team_id: String,
+    ) -> Self {
+        ofm_core::rng::set_seed(seed);
+        Self {
+            game,
+            step,
+            mode,
+            initial_net_worth,
+            net_spend,
+            horizon_days,
+            advanced_days,
+            target_seasons: target_seasons.max(1),
+            seasons_completed,
+            snapshots,
+            seen_offers,
+            last_action_result: None,
+            user_team_id,
+            manager_firings,
         }
     }
 
     /// Game days advanced so far (used for per-season snapshots).
     pub fn advanced_days(&self) -> u64 {
         self.advanced_days
+    }
+
+    // Checkpoint support: expose the resume-relevant state so the MCP layer
+    // can persist/restore an interrupted episode (any horizon, any track).
+
+    pub fn checkpoint_fields(&self) -> (
+        u64, u32, u32, u64, u64, i64, i64,
+        Vec<crate::run::SeasonSnapshot>, std::collections::HashSet<String>, u32, String,
+    ) {
+        (
+            self.horizon_days, self.target_seasons, self.seasons_completed,
+            self.advanced_days, self.step, self.initial_net_worth, self.net_spend,
+            self.snapshots.clone(), self.seen_offers.clone(), self.manager_firings,
+            self.user_team_id.clone(),
+        )
     }
 
     /// Per-season metric snapshots recorded during the episode (Dynasty curve).
@@ -199,6 +290,19 @@ impl Episode {
 
     pub fn step_count(&self) -> u64 {
         self.step
+    }
+
+    /// How many times the sim's board tried to fire the manager mid-episode
+    /// (each one was overridden by re-hiring — a "would have been fired"
+    /// signal, not yet part of the scored metrics).
+    pub fn manager_firings(&self) -> u32 {
+        self.manager_firings
+    }
+
+    /// True when the current league season is complete (standings final) — the
+    /// natural season boundary for snapshots and multi-season rollover.
+    pub fn season_complete(&self) -> bool {
+        ofm_core::end_of_season::is_season_complete(&self.game)
     }
 
     /// Final evaluation metrics for the current game state (sport/finance/squad).
@@ -299,11 +403,19 @@ impl Episode {
             next_fixture,
             squad: self.squad_view(user_team_id),
             offers: if self.mode == env::AgentMode::Manager { offers } else { Vec::new() },
-            market: if self.mode == env::AgentMode::Manager { self.market_view(user_team_id) } else { Vec::new() },
-            scout_reports: if self.mode == env::AgentMode::Manager { self.scout_report_views() } else { Vec::new() },
-            scouting_in_progress: if self.mode == env::AgentMode::Manager { self.scouting_views() } else { Vec::new() },
+            market: if matches!(self.mode, env::AgentMode::Recruiter | env::AgentMode::Manager) { self.market_view(user_team_id) } else { Vec::new() },
+            scout_reports: if matches!(self.mode, env::AgentMode::Recruiter | env::AgentMode::Manager) { self.scout_report_views() } else { Vec::new() },
+            scouting_in_progress: if matches!(self.mode, env::AgentMode::Recruiter | env::AgentMode::Manager) { self.scouting_views() } else { Vec::new() },
             transfer_window_open: transfers::transfer_window_is_open(&self.game),
-            done: self.advanced_days >= self.horizon_days,
+            last_action_result: self.last_action_result.clone(),
+            // The episode ends when the target number of seasons has
+            // completed (standings final) or the horizon cap is hit. Ending
+            // at season completion avoids the "post-season drift" problem —
+            // running ~5 months past the last match would bake contract
+            // expiries / post-season transfers into the end-state metrics.
+            done: self.advanced_days >= self.horizon_days
+                || (ofm_core::end_of_season::is_season_complete(&self.game)
+                    && self.seasons_completed + 1 >= self.target_seasons),
         }
     }
 
@@ -317,14 +429,56 @@ impl Episode {
         self.observe()
     }
 
+    /// Composition-Ladder gate: which actions the current track may perform.
+    fn mode_allows(&self, action: &Action) -> bool {
+        use env::AgentMode::*;
+        match self.mode {
+            Coach => matches!(action,
+                Action::Continue | Action::SetLineup { .. }
+                | Action::SetTactics { .. } | Action::SetMatchPlan { .. }),
+            Recruiter => !matches!(action,
+                Action::AcceptOffer { .. } | Action::RejectOffer { .. }
+                | Action::CounterOffer { .. } | Action::ListPlayer { .. }),
+            Manager => true,
+        }
+    }
+
     fn apply(&mut self, action: Action) {
+        let friendly = |e: &str| e.trim_start_matches("be.error.").to_string();
+        if !self.mode_allows(&action) {
+            let name = format!("{:?}", std::mem::discriminant(&action));
+            self.last_action_result = Some(format!(
+                "Action {name} is not available in this track (responsibility scope is locked)."
+            ));
+            return;
+        }
         match action {
-            Action::Continue => {}
-            Action::SetLineup { player_ids } => env::apply_lineup(&mut self.game, &player_ids),
-            Action::SetTactics { play_style } => env::apply_play_style(&mut self.game, play_style),
-            Action::SetMatchPlan { player_ids, play_style } => {
+            Action::Continue => {
+                self.last_action_result = Some("Continued to the next decision point (no intervention; the AI default applies where relevant).".into());
+            }
+            Action::SetLineup { player_ids } => {
+                let valid = self.valid_squad_count(&player_ids);
                 env::apply_lineup(&mut self.game, &player_ids);
-                env::apply_play_style(&mut self.game, play_style);
+                self.last_action_result = Some(format!(
+                    "Set lineup ({} of {} provided ids are in your squad) for the next match.",
+                    valid,
+                    player_ids.len()
+                ));
+            }
+            Action::SetTactics { play_style } => {
+                env::apply_play_style(&mut self.game, play_style.clone());
+                self.last_action_result = Some(format!("Set match tactics to {:?}.", play_style));
+            }
+            Action::SetMatchPlan { player_ids, play_style } => {
+                let valid = self.valid_squad_count(&player_ids);
+                env::apply_lineup(&mut self.game, &player_ids);
+                env::apply_play_style(&mut self.game, play_style.clone());
+                self.last_action_result = Some(format!(
+                    "Set lineup ({} of {} provided ids are in your squad) and {:?} tactics for the next match.",
+                    valid,
+                    player_ids.len(),
+                    play_style
+                ));
             }
             Action::AcceptOffer { player_id, offer_id } => {
                 // Record the sale income before the offer is consumed.
@@ -336,41 +490,108 @@ impl Episode {
                     .and_then(|p| p.transfer_offers.iter().find(|o| o.id == offer_id))
                     .map(|o| o.fee as i64)
                     .unwrap_or(0);
-                let _ = transfers::respond_to_offer(&mut self.game, &player_id, &offer_id, true);
-                self.net_spend -= income;
+                let name = self.player_name(&player_id);
+                match transfers::respond_to_offer(&mut self.game, &player_id, &offer_id, true) {
+                    Ok(_) => {
+                        self.net_spend -= income;
+                        self.last_action_result = Some(format!("Accepted the £{} offer for {} (they will leave the club).", income, name));
+                    }
+                    Err(msg) => self.last_action_result = Some(format!("Could not accept offer for {}: {}.", name, friendly(&msg))),
+                }
             }
             Action::RejectOffer { player_id, offer_id } => {
-                let _ = transfers::respond_to_offer(&mut self.game, &player_id, &offer_id, false);
+                let name = self.player_name(&player_id);
+                match transfers::respond_to_offer(&mut self.game, &player_id, &offer_id, false) {
+                    Ok(_) => self.last_action_result = Some(format!("Rejected the offer for {}.", name)),
+                    Err(msg) => self.last_action_result = Some(format!("Could not reject offer for {}: {}.", name, friendly(&msg))),
+                }
             }
             Action::CounterOffer { player_id, offer_id, fee } => {
-                let _ = transfers::counter_offer(&mut self.game, &player_id, &offer_id, fee);
+                let name = self.player_name(&player_id);
+                match transfers::counter_offer(&mut self.game, &player_id, &offer_id, fee) {
+                    Ok(_) => self.last_action_result = Some(format!("Countered the offer for {} at £{}.", name, fee)),
+                    Err(msg) => self.last_action_result = Some(format!("Could not counter offer for {}: {}.", name, friendly(&msg))),
+                }
             }
             Action::MakeBid { player_id, fee } => {
-                let outcome = transfers::make_transfer_bid(&mut self.game, &player_id, fee);
-                if let Ok(o) = outcome {
-                    if o.decision == transfers::TransferNegotiationDecision::Accepted {
-                        self.net_spend += fee as i64;
+                let name = self.player_name(&player_id);
+                match transfers::make_transfer_bid(&mut self.game, &player_id, fee) {
+                    Ok(o) => {
+                        if o.decision == transfers::TransferNegotiationDecision::Accepted {
+                            self.net_spend += fee as i64;
+                        }
+                        let dec = match o.decision {
+                            transfers::TransferNegotiationDecision::Accepted => {
+                                format!("ACCEPTED (registers {})", o.registration_date.as_deref().unwrap_or("immediately"))
+                            }
+                            transfers::TransferNegotiationDecision::Rejected => "REJECTED".into(),
+                            transfers::TransferNegotiationDecision::CounterOffer => {
+                                format!("countered; suggested £{}", o.suggested_fee.unwrap_or(0))
+                            }
+                        };
+                        self.last_action_result = Some(format!("Bid of £{} for {}: {}.", fee, name, dec));
                     }
+                    Err(msg) => self.last_action_result = Some(format!("Bid for {} failed: {}.", name, friendly(&msg))),
                 }
             }
             Action::Scout { player_id } => {
-                if let Some(scout_id) = self.user_scout_id() {
-                    let _ = ofm_core::scouting::send_scout(&mut self.game, &scout_id, &player_id);
+                let name = self.player_name(&player_id);
+                match self.user_scout_id() {
+                    Some(scout_id) => match ofm_core::scouting::send_scout(&mut self.game, &scout_id, &player_id) {
+                        Ok(_) => self.last_action_result = Some(format!("Scout sent to assess {} (report will appear in scout_reports).", name)),
+                        Err(msg) => self.last_action_result = Some(format!("Could not send scout: {}.", friendly(&msg))),
+                    },
+                    None => self.last_action_result = Some("No scout available to send.".into()),
                 }
             }
             Action::ListPlayer { player_id } => {
-                if let Some(team_id) = self.game.manager.team_id.as_ref() {
-                    if let Some(player) = self
-                        .game
-                        .players
-                        .iter_mut()
-                        .find(|p| p.id == player_id && p.team_id.as_ref() == Some(team_id))
-                    {
-                        player.transfer_listed = true;
-                    }
-                }
+                let name = self.player_name(&player_id);
+                let ok = self
+                    .game
+                    .manager
+                    .team_id
+                    .as_ref()
+                    .map(|team_id| {
+                        self.game
+                            .players
+                            .iter_mut()
+                            .find(|p| p.id == player_id && p.team_id.as_ref() == Some(team_id))
+                            .map(|p| {
+                                p.transfer_listed = true;
+                            })
+                            .is_some()
+                    })
+                    .unwrap_or(false);
+                self.last_action_result = if ok {
+                    Some(format!("Transfer-listed {} for sale (incoming offers may follow).", name))
+                } else {
+                    Some(format!("Could not transfer-list {}: not in your squad.", name))
+                };
             }
         }
+    }
+
+    fn player_name(&self, player_id: &str) -> String {
+        self.game
+            .players
+            .iter()
+            .find(|p| p.id == player_id)
+            .map(|p| p.match_name.clone())
+            .unwrap_or_else(|| "unknown player".into())
+    }
+
+    /// How many of the given ids are actually in the managed squad. Invalid or
+    /// foreign ids are silently ignored by the lineup engine, so the agent
+    /// should be told the real count rather than assume all ids were accepted.
+    fn valid_squad_count(&self, ids: &[String]) -> usize {
+        let team_id = self.game.manager.team_id.as_deref();
+        ids.iter()
+            .filter(|id| {
+                self.game.players.iter().any(|p| {
+                    &p.id == *id && team_id.is_some() && p.team_id.as_deref() == team_id
+                })
+            })
+            .count()
     }
 
     /// Move the world forward one day (expiring stale offers, running the turn
@@ -379,21 +600,16 @@ impl Episode {
     fn advance_one_day(&mut self) {
         transfers::expire_stale_transfer_offers(&mut self.game);
         ofm_core::turn::process_day(&mut self.game);
-        self.advanced_days += 1;
-        if self.season_length > 0 && self.advanced_days % self.season_length == 0 {
-            let m = crate::run::metrics_of(&self.game, self.initial_net_worth, self.net_spend);
-            self.snapshots.push(crate::run::SeasonSnapshot {
-                season: (self.advanced_days / self.season_length) as u32,
-                points: m.points,
-                position: m.position,
-                balance: m.balance,
-                squad_value: m.squad_value,
-                avg_age: m.avg_age,
-                squad_size: m.squad_size,
-                net_value: m.net_value,
-                net_spend: m.net_spend,
-            });
+        // The sim may fire the manager for bad results; in the benchmark the
+        // board never fires the agent mid-episode, so re-hire (and count).
+        if self.game.manager.team_id.is_none() && !self.user_team_id.is_empty() {
+            self.game.manager.hire(self.user_team_id.clone());
+            self.manager_firings += 1;
         }
+        self.advanced_days += 1;
+        // Season snapshots are recorded at REAL season boundaries in
+        // advance_to_next_decision (the old 365-day cadence misaligned with
+        // the actual ~283-day season and never fired for MCP episodes).
     }
 
     /// A transfer-window "market day": the agent gets a chance to scout and bid
@@ -411,13 +627,44 @@ impl Episode {
     }
 
     /// Advance until the next decision point (a user matchday, fresh pending
-    /// offers, a transfer-window market day, or the horizon), always moving
-    /// forward at least one day first.
+    /// offers, a transfer-window market day, season completion, or the
+    /// horizon), always moving forward at least one day first.
     fn advance_to_next_decision(&mut self) {
         self.advance_one_day();
+        let mut guard = 0u32;
         loop {
+            guard += 1;
+            if guard > 10_000 {
+                break; // safety: a rollover that never clears season state
+            }
             if self.advanced_days >= self.horizon_days {
                 break;
+            }
+            // Stop the instant the league season completes — otherwise the
+            // final step would keep advancing to the next market day (weeks
+            // after the last match) and bake post-season drift into the
+            // end-state metrics. For multi-season runs the boundary is a
+            // rollover instead: snapshot the finished season and regenerate
+            // the next one (squad, finances and clock carry over).
+            if ofm_core::end_of_season::is_season_complete(&self.game) {
+                let m = crate::run::metrics_of(&self.game, self.initial_net_worth, self.net_spend);
+                self.snapshots.push(crate::run::SeasonSnapshot {
+                    season: self.seasons_completed + 1,
+                    points: m.points,
+                    position: m.position,
+                    balance: m.balance,
+                    squad_value: m.squad_value,
+                    avg_age: m.avg_age,
+                    squad_size: m.squad_size,
+                    net_value: m.net_value,
+                    net_spend: m.net_spend,
+                });
+                if self.seasons_completed + 1 >= self.target_seasons {
+                    break;
+                }
+                env::rollover_season(&mut self.game);
+                self.seasons_completed += 1;
+                continue;
             }
             if self.user_matchday() {
                 break; // user matchday — lineup/tactics decision
@@ -425,7 +672,9 @@ impl Episode {
             if self.mode == env::AgentMode::Manager && !self.fresh_offers().is_empty() {
                 break; // fresh transfer offer — accept/reject/counter decision
             }
-            if self.mode == env::AgentMode::Manager && self.market_day() {
+            if matches!(self.mode, env::AgentMode::Recruiter | env::AgentMode::Manager)
+                && self.market_day()
+            {
                 break; // transfer-window market — scout/bid decision
             }
             self.advance_one_day();

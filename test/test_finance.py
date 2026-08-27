@@ -1,10 +1,6 @@
-"""Finance scoring: value created (net_value) and net spend, not raw ending
-balance.
-
-A club that buys must show positive net_spend (money spent) and a net_value
-that reflects whether that spending created or destroyed wealth. The finance
-dimensions are reported relative to the reference, so a manager who burns money
-without building value is penalised."""
+"""Finance scoring (the design notes §1): value created (net_value) is directional;
+net_spend and wage_bill are *constraints* — only budget violations are scored,
+never "spend as little as possible". avg_age is a diagnostic (raw only)."""
 
 from conftest import clubbench, parse_blocks
 
@@ -22,15 +18,20 @@ def test_finance_dimensions_reported():
     assert r.returncode == 0, r.stderr
     block = _proactive_block(r.stdout)
     assert block is not None
-    for dim in ("net_value", "net_spend"):
-        assert dim in block["rows"]
+    # Directional + constraint dims are scored (have a Z).
+    for dim in ("net_value", "squad_value", "transfer_budget_violation", "wage_budget_violation", "squad_size"):
+        assert dim in block["rows"], f"missing scored dim {dim}"
+    # Diagnostic dims (avg_age) are raw-only → Z = None.
+    assert block["rows"]["avg_age"][4] is None
 
 
-def test_buying_shows_net_spend():
+def test_within_budget_is_zero_violation():
+    """A candidate that spends inside the £50M transfer budget has no
+    transfer-budget violation (0 = healthy), regardless of how much it spends."""
     r = clubbench("score", "--scenario", "rebuild", "--club", "15", "--seeds", "42",
                   "--days", "300", "--world", "compact")
     assert r.returncode == 0, r.stderr
     block = _proactive_block(r.stdout)
-    _, _, delta_spend, _, _ = block["rows"]["net_spend"]
-    # Proactive buys players with the £50M budget → it spends vs the reference.
-    assert delta_spend > 0
+    # Proactive spends ~1.4× value on targets but stays inside the budget.
+    cand_violation = block["rows"]["transfer_budget_violation"][0]
+    assert cand_violation == 0.0
