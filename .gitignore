@@ -26,3 +26,10 @@ venv/
 
 # Agent run artifacts
 runs/
+
+# Reference pack PDFs (large binaries; bib/README/urls are tracked)
+/ClubBench_reference_pack/papers/
+
+# Scratch
+flashinferbench.pdf
+.log

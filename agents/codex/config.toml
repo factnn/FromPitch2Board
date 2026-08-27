@@ -1,0 +1,19 @@
+# Codex + DeepSeek provider config (official setup, adapted for per-run WS).
+# {{DEEPSEEK_API_KEY}} is substituted by run_agent.sh from the environment —
+# the key never lives in this repo.
+model = "{{CODEX_MODEL}}"
+# Aligned with the other harnesses: max reasoning everywhere (cc uses
+# CLAUDE_CODE_EFFORT_LEVEL=max; pi uses --thinking xhigh; Ours uses thinking
+# enabled with a non-binding budget). The official setup script sets "high".
+model_reasoning_effort = "max"
+approvals_reviewer = "auto_review"
+model_provider = "deepseek"
+preferred_auth_method = "apikey"
+forced_login_method = "api"
+model_catalog_json = "~/.codex/models.json"
+
+[model_providers.deepseek]
+name = "deepseek"
+base_url = "https://api.deepseek.com/"
+wire_api = "responses"
+experimental_bearer_token = "{{DEEPSEEK_API_KEY}}"
