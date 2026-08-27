@@ -52,7 +52,7 @@ fn write_checkpoint(cp_dir: &str, seed: u64, ep: &Episode) -> Result<(), String>
     db::game_persistence::GamePersistenceWriter::write_game(&db, &ep.game, "checkpoint", "checkpoint")?;
     let (horizon_days, target_seasons, seasons_completed, advanced_days, step,
          initial_net_worth, net_spend, snapshots, seen_offers, manager_firings,
-         user_team_id) = ep.checkpoint_fields();
+         user_team_id, match_stops) = ep.checkpoint_fields();
     let state = json!({
         "seed": seed,
         "horizon_days": horizon_days,
@@ -66,6 +66,7 @@ fn write_checkpoint(cp_dir: &str, seed: u64, ep: &Episode) -> Result<(), String>
         "seen_offers": seen_offers,
         "manager_firings": manager_firings,
         "user_team_id": user_team_id,
+        "match_stops": match_stops,
     });
     std::fs::write(dir.join("state.json"), serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())
@@ -94,6 +95,9 @@ fn read_checkpoint(
         serde_json::from_value(state.get("snapshots")?.clone()).ok()?;
     let seen_offers: std::collections::HashSet<String> =
         serde_json::from_value(state.get("seen_offers")?.clone()).ok()?;
+    // Note: match_stops is applied by the reset caller (the reset args are
+    // the single source of truth for the track); the checkpoint stores it
+    // only for observability of resumed runs.
     Some(Episode::resume(
         seed,
         game,
@@ -145,6 +149,7 @@ impl ClubBenchMcp {
                         "world": { "type": "string", "enum": ["compact", "medium", "standard"] },
                         "mode": { "type": "string", "enum": ["coach", "manager"] },
                         "days": { "type": "number", "description": "episode horizon in game days" },
+                        "match_stops": { "type": "boolean", "description": "L1 Match track: pause user matches at 30'/HT/60'/75' for live substitutions and tactic changes (default false)" },
                         "anonymize": { "type": "boolean", "description": "remap clubs/players to synthetic ids (default true)" }
                     },
                     "required": ["seed"]
@@ -202,6 +207,7 @@ impl ClubBenchMcp {
         let days = args.get("days").and_then(Value::as_u64).unwrap_or(400);
         let seasons = args.get("seasons").and_then(Value::as_u64).unwrap_or(1) as u32;
         let cp_dir = args.get("cp_dir").and_then(Value::as_str).map(String::from);
+        let match_stops = args.get("match_stops").and_then(Value::as_bool).unwrap_or(false);
 
         let pick = ClubPick::Strength(club);
         let world = match world {
@@ -229,6 +235,7 @@ impl ClubBenchMcp {
             },
             None => Episode::new_with_mode_seasons(seed, &pick, world, &budget, mode, days, seasons),
         };
+        ep = ep.with_match_stops(match_stops);
         if anonymize {
             ep.anonymize_identities();
         }
@@ -309,8 +316,10 @@ impl ClubBenchMcp {
         let obs = ep.step(action);
         // Periodic checkpoint: every CHECKPOINT_STEPS acts, persist the
         // episode so an interrupted run (any horizon) can resume instead of
-        // restarting from season 1.
-        if obs.step % CHECKPOINT_STEPS == 0 {
+        // restarting from season 1. Skipped mid-match: the live-match session
+        // is not part of the game db, so a mid-match checkpoint would resume
+        // with the fixture lost.
+        if obs.step % CHECKPOINT_STEPS == 0 && !ep.in_match() {
             if let Some(dir) = self.cp_dir.lock().unwrap().as_ref() {
                 let meta = self.meta.lock().unwrap();
                 let seed = meta.as_ref().map(|m| m.seed).unwrap_or(0);

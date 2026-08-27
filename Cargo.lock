@@ -342,8 +342,9 @@ dependencies = [
  "chrono",
  "clap",
  "db",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=b09759e4)",
- "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=b09759e4)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
  "rand",
  "rmcp",
  "serde",
@@ -480,12 +481,12 @@ dependencies = [
 [[package]]
 name = "db"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=b09759e4#b09759e46bec57aa61dfc23e3777c271735186ea"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
 dependencies = [
  "chrono",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=b09759e4)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
  "log",
- "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=b09759e4)",
+ "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
  "rusqlite",
  "rusqlite_migration",
  "serde",
@@ -553,7 +554,7 @@ dependencies = [
 [[package]]
 name = "domain"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
 dependencies = [
  "log",
  "serde",
@@ -562,7 +563,7 @@ dependencies = [
 [[package]]
 name = "domain"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=b09759e4#b09759e46bec57aa61dfc23e3777c271735186ea"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
 dependencies = [
  "log",
  "serde",
@@ -577,7 +578,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 [[package]]
 name = "engine"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
 dependencies = [
  "log",
  "rand",
@@ -587,7 +588,7 @@ dependencies = [
 [[package]]
 name = "engine"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=b09759e4#b09759e46bec57aa61dfc23e3777c271735186ea"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
 dependencies = [
  "log",
  "rand",
@@ -1098,12 +1099,12 @@ dependencies = [
 [[package]]
 name = "ofm_core"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
 dependencies = [
  "base64",
  "chrono",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
- "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
  "hex",
  "log",
  "rand",
@@ -1118,12 +1119,12 @@ dependencies = [
 [[package]]
 name = "ofm_core"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=b09759e4#b09759e46bec57aa61dfc23e3777c271735186ea"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
 dependencies = [
  "base64",
  "chrono",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=b09759e4)",
- "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=b09759e4)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
+ "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
  "hex",
  "log",
  "rand",

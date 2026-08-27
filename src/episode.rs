@@ -42,6 +42,10 @@ pub enum Action {
     Scout { player_id: String },
     /// Transfer-list one of our players for sale — attracts incoming offers.
     ListPlayer { player_id: String },
+    /// Substitute a player during the live match (L1 Match track).
+    Substitute { player_out_id: String, player_in_id: String },
+    /// Change tactics during the live match (L1 Match track).
+    MatchTactics { play_style: Option<String>, formation: Option<String> },
 }
 
 /// An incoming transfer offer for one of our players (status `Pending`).
@@ -96,6 +100,33 @@ pub struct ScoutingView {
     pub days_remaining: u32,
 }
 
+/// A player as seen from the live-match (L1) observation.
+#[derive(Serialize, Clone, Debug)]
+pub struct LiveMatchPlayer {
+    pub id: String,
+    pub name: String,
+    pub position: String,
+    /// Live condition (drops as the match wears on).
+    pub condition: u8,
+}
+
+/// The in-match observation at an L1 checkpoint stop.
+#[derive(Serialize, Clone, Debug)]
+pub struct LiveMatchView {
+    pub minute: u8,
+    pub phase: String,
+    pub home_score: u8,
+    pub away_score: u8,
+    /// "home" or "away" — the side the agent controls.
+    pub user_side: String,
+    pub field: Vec<LiveMatchPlayer>,
+    pub bench: Vec<LiveMatchPlayer>,
+    pub subs_made: u8,
+    pub subs_max: u8,
+    /// Notable events since the previous stop (goals, cards, injuries).
+    pub events: Vec<String>,
+}
+
 /// The full decision-point observation.
 #[derive(Serialize, Clone, Debug)]
 pub struct EpisodeObservation {
@@ -114,6 +145,9 @@ pub struct EpisodeObservation {
     pub scout_reports: Vec<ScoutReportView>,
     pub scouting_in_progress: Vec<ScoutingView>,
     pub transfer_window_open: bool,
+    /// Present at an L1 in-match checkpoint stop (match_stops enabled).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live_match: Option<LiveMatchView>,
     /// Human-readable outcome of the previous action (e.g. "Bid of £5.5M for
     /// Player_12: REJECTED."). `None` on the very first observation.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -136,6 +170,18 @@ pub struct Episode {
     /// (squad/finances/clock carry) until `target_seasons` is reached.
     target_seasons: u32,
     seasons_completed: u32,
+    /// L1 Match track: pause user matches at fixed checkpoints (30'/HT/60'/75')
+    /// so the agent can substitute and change tactics mid-game.
+    match_stops: bool,
+    /// The live match currently in progress (Some between the kickoff of a
+    /// user matchday and the final whistle).
+    stopped_match: Option<ofm_core::live_match_manager::LiveMatchSession>,
+    /// Index into `MATCH_CHECKPOINTS` of the next stop.
+    next_checkpoint: usize,
+    /// The user's fixture (competition_index, fixture_index) whose matchday was
+    /// processed with the fixture skipped — it must be played via the
+    /// stopped-match flow at the next decision.
+    pending_user_fixture: Option<(usize, usize)>,
     /// Metrics snapshot recorded at each season boundary (Dynasty curve).
     snapshots: Vec<crate::run::SeasonSnapshot>,
     /// Offer ids already shown to the agent — new offers (never-seen ids) are
@@ -220,7 +266,26 @@ impl Episode {
             seen_offers: Default::default(),
             last_action_result: None,
             manager_firings: 0,
+            match_stops: false,
+            stopped_match: None,
+            next_checkpoint: 0,
+            pending_user_fixture: None,
         }
+    }
+
+    /// Enable the L1 Match track: user matches pause at fixed checkpoints so
+    /// the agent can substitute and change tactics mid-game. Off by default —
+    /// all classic episodes keep their pre-match-only decision cadence.
+    pub fn with_match_stops(mut self, on: bool) -> Self {
+        self.match_stops = on;
+        self
+    }
+
+    /// Is a live match currently in progress (between an L1 checkpoint stop
+    /// and the final whistle)? Used by the MCP layer to skip checkpoint
+    /// persistence mid-match.
+    pub fn in_match(&self) -> bool {
+        self.stopped_match.is_some()
     }
 
     /// Resume an interrupted episode from a checkpoint (game state + counters).
@@ -260,6 +325,10 @@ impl Episode {
             last_action_result: None,
             user_team_id,
             manager_firings,
+            match_stops: false,
+            stopped_match: None,
+            next_checkpoint: 0,
+            pending_user_fixture: None,
         }
     }
 
@@ -273,13 +342,13 @@ impl Episode {
 
     pub fn checkpoint_fields(&self) -> (
         u64, u32, u32, u64, u64, i64, i64,
-        Vec<crate::run::SeasonSnapshot>, std::collections::HashSet<String>, u32, String,
+        Vec<crate::run::SeasonSnapshot>, std::collections::HashSet<String>, u32, String, bool,
     ) {
         (
             self.horizon_days, self.target_seasons, self.seasons_completed,
             self.advanced_days, self.step, self.initial_net_worth, self.net_spend,
             self.snapshots.clone(), self.seen_offers.clone(), self.manager_firings,
-            self.user_team_id.clone(),
+            self.user_team_id.clone(), self.match_stops,
         )
     }
 
@@ -407,6 +476,7 @@ impl Episode {
             scout_reports: if matches!(self.mode, env::AgentMode::Recruiter | env::AgentMode::Manager) { self.scout_report_views() } else { Vec::new() },
             scouting_in_progress: if matches!(self.mode, env::AgentMode::Recruiter | env::AgentMode::Manager) { self.scouting_views() } else { Vec::new() },
             transfer_window_open: transfers::transfer_window_is_open(&self.game),
+            live_match: self.live_match_view(),
             last_action_result: self.last_action_result.clone(),
             // The episode ends when the target number of seasons has
             // completed (standings final) or the horizon cap is hit. Ending
@@ -425,8 +495,35 @@ impl Episode {
         self.apply(action);
         // Every action addresses the current decision point, so the world
         // always moves forward at least one day (which plays any match today).
-        self.advance_to_next_decision();
+        if self.stopped_match.is_some() {
+            self.advance_match();
+        } else {
+            self.advance_to_next_decision();
+        }
         self.observe()
+    }
+
+    /// In-match advancement: step the live match to the next checkpoint and
+    /// present it, or — once the agent has acted at the last checkpoint (or
+    /// the match finished early) — run to completion and write the result
+    /// back into the season.
+    fn advance_match(&mut self) {
+        let finished = self
+            .stopped_match
+            .as_ref()
+            .map(|sm| sm.is_finished())
+            .unwrap_or(true);
+        if !finished && self.next_checkpoint < Self::MATCH_CHECKPOINTS.len() {
+            let sm = self.stopped_match.as_mut().expect("in-match step");
+            sm.step_to(Self::MATCH_CHECKPOINTS[self.next_checkpoint]);
+            self.next_checkpoint += 1;
+            return; // present the new checkpoint observation
+        }
+        let sm = self.stopped_match.take().expect("session present");
+        let _captures = ofm_core::turn::apply_finished_live_match(&mut self.game, sm);
+        // The matchday itself was already processed (fixture skipped);
+        // resume the ordinary decision cadence for the days after it.
+        self.advance_to_next_decision();
     }
 
     /// Composition-Ladder gate: which actions the current track may perform.
@@ -435,7 +532,8 @@ impl Episode {
         match self.mode {
             Coach => matches!(action,
                 Action::Continue | Action::SetLineup { .. }
-                | Action::SetTactics { .. } | Action::SetMatchPlan { .. }),
+                | Action::SetTactics { .. } | Action::SetMatchPlan { .. }
+                | Action::Substitute { .. } | Action::MatchTactics { .. }),
             Recruiter => !matches!(action,
                 Action::AcceptOffer { .. } | Action::RejectOffer { .. }
                 | Action::CounterOffer { .. } | Action::ListPlayer { .. }),
@@ -445,6 +543,18 @@ impl Episode {
 
     fn apply(&mut self, action: Action) {
         let friendly = |e: &str| e.trim_start_matches("be.error.").to_string();
+        if self.stopped_match.is_some()
+            && !matches!(
+                action,
+                Action::Continue | Action::Substitute { .. } | Action::MatchTactics { .. }
+            )
+        {
+            self.last_action_result = Some(
+                "In-match stop: only Substitute, MatchTactics or Continue are available."
+                    .into(),
+            );
+            return;
+        }
         if !self.mode_allows(&action) {
             let name = format!("{:?}", std::mem::discriminant(&action));
             self.last_action_result = Some(format!(
@@ -568,6 +678,66 @@ impl Episode {
                     Some(format!("Could not transfer-list {}: not in your squad.", name))
                 };
             }
+            Action::Substitute { player_out_id, player_in_id } => {
+                let side = self.stopped_match.as_ref().and_then(|sm| sm.user_side);
+                let (out_name, in_name) =
+                    (self.player_name(&player_out_id), self.player_name(&player_in_id));
+                match (side, &mut self.stopped_match) {
+                    (Some(side), Some(sm)) => {
+                        match sm.apply_command(engine::MatchCommand::Substitute {
+                            side,
+                            player_off_id: player_out_id,
+                            player_on_id: player_in_id,
+                        }) {
+                            Ok(_) => self.last_action_result =
+                                Some(format!("Substituted {in_name} on for {out_name}.")),
+                            Err(msg) => self.last_action_result = Some(format!(
+                                "Could not substitute {in_name} for {out_name}: {msg}."
+                            )),
+                        }
+                    }
+                    _ => self.last_action_result = Some(
+                        "No live match in progress — Substitute is only available at in-match stops."
+                            .into(),
+                    ),
+                }
+            }
+            Action::MatchTactics { play_style, formation } => {
+                let side = self.stopped_match.as_ref().and_then(|sm| sm.user_side);
+                let style = play_style.as_deref().and_then(|s| match s {
+                    "Balanced" => Some(engine::PlayStyle::Balanced),
+                    "Attacking" => Some(engine::PlayStyle::Attacking),
+                    "Defensive" => Some(engine::PlayStyle::Defensive),
+                    "Possession" => Some(engine::PlayStyle::Possession),
+                    "Counter" => Some(engine::PlayStyle::Counter),
+                    "HighPress" => Some(engine::PlayStyle::HighPress),
+                    _ => None,
+                });
+                match (side, &mut self.stopped_match) {
+                    (Some(side), Some(sm)) => {
+                        let mut results = Vec::new();
+                        if let Some(style) = style {
+                            match sm.apply_command(engine::MatchCommand::ChangePlayStyle { side, play_style: style }) {
+                                Ok(_) => results.push("play style updated".to_string()),
+                                Err(msg) => results.push(format!("play style rejected: {msg}")),
+                            }
+                        } else if play_style.is_some() {
+                            results.push("unknown play style (Balanced/Attacking/Defensive/Possession/Counter/HighPress)".into());
+                        }
+                        if let Some(formation) = formation {
+                            match sm.apply_command(engine::MatchCommand::ChangeFormation { side, formation }) {
+                                Ok(_) => results.push("formation updated".to_string()),
+                                Err(msg) => results.push(format!("formation rejected: {msg}")),
+                            }
+                        }
+                        self.last_action_result = Some(format!("Match tactics: {}.", results.join("; ")));
+                    }
+                    _ => self.last_action_result = Some(
+                        "No live match in progress — MatchTactics is only available at in-match stops."
+                            .into(),
+                    ),
+                }
+            }
         }
     }
 
@@ -599,7 +769,23 @@ impl Episode {
     /// per-season metrics snapshot whenever a season boundary is crossed.
     fn advance_one_day(&mut self) {
         transfers::expire_stale_transfer_offers(&mut self.game);
-        ofm_core::turn::process_day(&mut self.game);
+        if self.match_stops && self.user_matchday() && self.stopped_match.is_none() {
+            // L1 matchday: process the day with the user's fixture left
+            // unplayed — the stopped-match flow plays it at the next decision.
+            match self.resolve_user_fixture() {
+                Some((competition_index, fixture_index)) => {
+                    ofm_core::turn::process_day_skipping_fixture(
+                        &mut self.game,
+                        competition_index,
+                        fixture_index,
+                    );
+                    self.pending_user_fixture = Some((competition_index, fixture_index));
+                }
+                None => ofm_core::turn::process_day(&mut self.game),
+            }
+        } else {
+            ofm_core::turn::process_day(&mut self.game);
+        }
         // The sim may fire the manager for bad results; in the benchmark the
         // board never fires the agent mid-episode, so re-hire (and count).
         if self.game.manager.team_id.is_none() && !self.user_team_id.is_empty() {
@@ -636,6 +822,13 @@ impl Episode {
             guard += 1;
             if guard > 10_000 {
                 break; // safety: a rollover that never clears season state
+            }
+            if self.stopped_match.is_some() {
+                break; // in-match checkpoint — observe the live state
+            }
+            if self.pending_user_fixture.is_some() {
+                self.begin_stopped_match();
+                break;
             }
             if self.advanced_days >= self.horizon_days {
                 break;
@@ -685,6 +878,95 @@ impl Episode {
     fn user_matchday(&self) -> bool {
         let today = self.game.clock.current_date.format("%Y-%m-%d").to_string();
         self.game.user_has_scheduled_match_on(&today)
+    }
+
+    /// L1 match checkpoints (game minutes). The agent decides at each stop;
+    /// after the last one the match runs to completion.
+    const MATCH_CHECKPOINTS: [u8; 4] = [30, 45, 60, 75];
+
+    /// Locate today's scheduled user fixture across all competitions, as
+    /// (competition_index, fixture_index) — the same resolution the GUI's
+    /// live-match start uses.
+    fn resolve_user_fixture(&self) -> Option<(usize, usize)> {
+        let today = self.game.clock.current_date.format("%Y-%m-%d").to_string();
+        let team_id = self.game.manager.team_id.as_deref()?;
+        for (competition_index, competition) in self.game.competitions.iter().enumerate() {
+            for (fixture_index, fixture) in competition.fixtures.iter().enumerate() {
+                if fixture.date == today
+                    && fixture.status == domain::league::FixtureStatus::Scheduled
+                    && (fixture.home_team_id == team_id || fixture.away_team_id == team_id)
+                {
+                    return Some((competition_index, fixture_index));
+                }
+            }
+        }
+        None
+    }
+
+    /// Create the live-match session for the pending user fixture, swap its
+    /// competition into the legacy mirror (create_live_match reads it), and
+    /// step to the first checkpoint.
+    fn begin_stopped_match(&mut self) {
+        let (competition_index, fixture_index) =
+            self.pending_user_fixture.take().expect("pending fixture set");
+        if let Some(competition) = self.game.competitions.get(competition_index).cloned() {
+            self.game.league = Some(competition);
+        }
+        // Match-keyed sub-stream: same draw source the whole-match engine
+        // path uses, so both arms stay deterministic under (seed, fixture).
+        ofm_core::rng::set_domain("match", &fixture_index.to_le_bytes());
+        match ofm_core::live_match_manager::create_live_match(
+            &self.game,
+            fixture_index,
+            ofm_core::live_match_manager::MatchMode::Live,
+            false,
+        ) {
+            Ok(mut session) => {
+                session.step_to(Self::MATCH_CHECKPOINTS[0]);
+                self.next_checkpoint = 1;
+                self.stopped_match = Some(session);
+                self.last_action_result = Some(format!(
+                    "Kickoff — live match control enabled (stops at 30'/HT/60'/75')."
+                ));
+            }
+            Err(msg) => {
+                self.last_action_result = Some(format!("Could not start live match: {msg}."));
+                // The fixture stays unplayed this round; the season continues.
+            }
+        }
+    }
+
+    /// Build the live-match observation view from the session snapshot.
+    fn live_match_view(&self) -> Option<LiveMatchView> {
+        let sm = self.stopped_match.as_ref()?;
+        let snap = sm.snapshot();
+        let user_side = sm.user_side?;
+        let (user_team, user_bench, subs_made) = match user_side {
+            engine::Side::Home => (&snap.home_team, &snap.home_bench, snap.home_subs_made),
+            engine::Side::Away => (&snap.away_team, &snap.away_bench, snap.away_subs_made),
+        };
+        let to_view = |p: &engine::PlayerData| LiveMatchPlayer {
+            id: p.id.clone(),
+            name: p.name.clone(),
+            position: format!("{:?}", p.position),
+            condition: p.condition,
+        };
+        Some(LiveMatchView {
+            minute: snap.current_minute,
+            phase: format!("{:?}", snap.phase),
+            home_score: snap.home_score,
+            away_score: snap.away_score,
+            user_side: format!("{user_side:?}").to_lowercase(),
+            field: user_team.players.iter().map(to_view).collect(),
+            bench: user_bench.iter().map(to_view).collect(),
+            subs_made,
+            subs_max: snap.max_subs,
+            events: snap
+                .events
+                .iter()
+                .map(|e| format!("{:?}", e))
+                .collect(),
+        })
     }
 
     fn squad_view(&self, team_id: &str) -> Vec<env::PlayerView> {
