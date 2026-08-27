@@ -1,0 +1,137 @@
+{
+  "world": "Medium",
+  "cells": {
+    "rebuild:75": {
+      "n": 100,
+      "dims": {
+        "avg_age": {
+          "mu": 24.62248459511503,
+          "sigma": 1.0903276263352848
+        },
+        "points": {
+          "mu": 47.17,
+          "sigma": 15.272643398038085
+        },
+        "squad_value": {
+          "mu": 65827680.0,
+          "sigma": 6475381.145141071
+        },
+        "wage_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "net_value": {
+          "mu": 8711631.8,
+          "sigma": 5927176.77358357
+        },
+        "transfer_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "squad_size": {
+          "mu": 0.0,
+          "sigma": 0.0
+        }
+      }
+    },
+    "moneyball:40": {
+      "n": 100,
+      "dims": {
+        "squad_size": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "points": {
+          "mu": 49.38,
+          "sigma": 13.706726211402318
+        },
+        "net_value": {
+          "mu": 11588868.09,
+          "sigma": 5736070.357273463
+        },
+        "transfer_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "squad_value": {
+          "mu": 61834511.5,
+          "sigma": 5747867.879500592
+        },
+        "wage_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "avg_age": {
+          "mu": 24.868535902503304,
+          "sigma": 1.1036716673736287
+        }
+      }
+    },
+    "crisis:5": {
+      "n": 100,
+      "dims": {
+        "squad_value": {
+          "mu": 54541210.5,
+          "sigma": 3368292.0455335816
+        },
+        "avg_age": {
+          "mu": 25.16954545454545,
+          "sigma": 0.9207665072363085
+        },
+        "wage_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "net_value": {
+          "mu": 11542825.29,
+          "sigma": 5507691.768403726
+        },
+        "points": {
+          "mu": 34.27,
+          "sigma": 11.088127238472945
+        },
+        "squad_size": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "transfer_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        }
+      }
+    },
+    "title:110": {
+      "n": 100,
+      "dims": {
+        "net_value": {
+          "mu": 10382456.38,
+          "sigma": 6315431.047280519
+        },
+        "points": {
+          "mu": 52.04,
+          "sigma": 12.107197959240711
+        },
+        "transfer_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "avg_age": {
+          "mu": 24.729311133069814,
+          "sigma": 1.0791722055702513
+        },
+        "squad_size": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "wage_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "squad_value": {
+          "mu": 67758599.0,
+          "sigma": 6244493.921844146
+        }
+      }
+    }
+  }
+}

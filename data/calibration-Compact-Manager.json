@@ -1,0 +1,38 @@
+{
+  "world": "Compact",
+  "cells": {
+    "rebuild:0": {
+      "n": 12,
+      "dims": {
+        "transfer_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "wage_budget_violation": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "avg_age": {
+          "mu": 24.826279095300833,
+          "sigma": 1.254407540966211
+        },
+        "squad_size": {
+          "mu": 0.0,
+          "sigma": 0.0
+        },
+        "squad_value": {
+          "mu": 56727737.5,
+          "sigma": 6117163.218917328
+        },
+        "net_value": {
+          "mu": 2253883.0833333335,
+          "sigma": 2353070.7185885445
+        },
+        "points": {
+          "mu": 15.666666666666666,
+          "sigma": 8.337574678235363
+        }
+      }
+    }
+  }
+}
