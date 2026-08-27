@@ -54,12 +54,14 @@ Measured with the headless season runner (`ofm-headless`):
 - a full season (≈ 400 days) advances in ≈ **0.4 s**.
 
 ### Reproducibility status
-- Raw world generation **is** seed-reproducible (`generate_world_data_seeded`).
-- Entity IDs and the game-build glue use ambient RNG → the current reset
-  strategy is **generate-once → save snapshot → load per episode**.
-- The season trajectory is not yet deterministic (ambient RNG in the match
-  engine / turn subsystems). Full per-episode determinism requires threading a
-  seeded RNG through the engine/turn loop — planned.
+- **Fully deterministic**: the simulator is patched (fork branch
+  `clubbench-dev`) to thread a keyed RNG through world generation, the match
+  engine and all turn subsystems. Same seed + same actions ⇒ **bit-identical
+  trajectories**, verified: a 100-seed Greedy calibration re-run matches the
+  frozen reference μ/σ to the last digit, and a 3Y run equals the first three
+  years of a 10Y run.
+- Episodes derive their RNG from `(scenario_seed, episode_idx)`; checkpoint
+  snapshots resume bit-identically.
 
 ## Repository layout
 
@@ -98,12 +100,24 @@ Claude Code / Codex / API agent
 - [x] **Environment interface** (`crates/clubbench`) — observe / act / step,
       XI-aware match engine
 - [x] **Gate-0 experiment** — lineup + play-style baselines (`clubbench`)
-- [ ] Gate-0 follow-up: LLM baseline (heuristic vs LLM), fix scenario team
-      selection (managed club is currently always the weakest `teams[0]`)
-- [x] Scenario suite **specs** (`docs/scenarios.md`); env `select_club` pending
-- [ ] Model Track + Agent Track baselines, leaderboard
+- [x] Scenario suite **specs** (`docs/scenarios.md`)
+- [x] Model Track + Agent Track full evaluation (4 models × 4 harnesses ×
+      1Y/3Y/10Y, 256×64 cells) — see `docs/experiments.md`
+
+## Open Source & Release
+
+**Two-repo layout**: this repo is the benchmark layer; the simulator is a
+**pinned git dependency** on the public fork
+[factnn/openfootmanager](https://github.com/factnn/openfootmanager)
+(branch `clubbench-dev`, commit pinned in `Cargo.toml`). Both repos are GPLv3;
+building this repo pulls the fork automatically.
+
+Release day checklist: `docs/release_checklist.md`.
 
 ## License
 
-ClubBench (this repo) and all ClubBench-authored code: TBD — see the licensing
-discussion in `the design notes`. The simulator fork is GPLv3 (upstream Openfoot Manager).
+- This repo: **GPLv3** (see `LICENSE.md`) — it links GPLv3 crates
+  (`ofm_core`/`domain`/`db`).
+- The simulator fork: **GPLv3**, inherited from upstream Openfoot Manager.
+- Experiment results under `docs/`/`data/`: same license, or CC-BY-4.0 for
+  tables/figures if preferred at publication time.
