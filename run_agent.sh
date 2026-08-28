@@ -40,6 +40,7 @@ PORT_SET=false
 BUDGET=""
 SKIP_AGENT=false
 MAX_AGENT_TURNS=""   # unset → derived from --days (single-knob design)
+MATCH_STOPS=0        # --match-stops: L1 in-match checkpoints (30'/HT/60'/75')
 ANON=true
 # Resolved once so the launch line and metadata.json agree on pi's model.
 # Exported: the metadata python heredoc only sees os.environ.
@@ -59,6 +60,7 @@ while [[ $# -gt 0 ]]; do
         --seasons) SEASONS="$2"; shift 2 ;;
         --port) PORT="$2"; PORT_SET=true; shift 2 ;;
         --budget-usd) BUDGET="$2"; shift 2 ;;
+        --match-stops) MATCH_STOPS=1; shift ;;
         --max-turns) MAX_AGENT_TURNS="$2"; shift 2 ;;
         --named) ANON=false; shift ;;
         --skip-agent) SKIP_AGENT=true; shift ;;
@@ -78,8 +80,13 @@ fi
 if [[ -z "$MAX_AGENT_TURNS" ]]; then
     MAX_AGENT_TURNS=$(( (DAYS + 399) / 400 * 2 + 1 ))
 fi
-# llm_agent steps out its episode; ~45 steps/season + fixed headroom.
-MAX_STEPS="${MAX_STEPS:-$(( DAYS / 400 * 45 + 60 ))}"
+# llm_agent steps out its episode; ~45 steps/season + fixed headroom. The L1
+# match-stops track adds ~5 in-match stops per matchday (~190/season).
+if [[ $MATCH_STOPS == 1 ]]; then
+    MAX_STEPS="${MAX_STEPS:-$(( DAYS / 400 * (45 + 190) + 60 ))}"
+else
+    MAX_STEPS="${MAX_STEPS:-$(( DAYS / 400 * 45 + 60 ))}"
+fi
 export MAX_STEPS
 
 # pick a free port unless one was requested
@@ -151,7 +158,7 @@ echo "[setup] MCP server on ${MCP_URL}"
 echo "[setup] resetting episode..."
 for _ in 1 2 3; do
     python3 agents/mcp_call.py --url "${MCP_URL}" reset \
-      "{\"seed\": ${SEED}, \"scenario\": \"${SCENARIO}\", \"club\": ${CLUB}, \"world\": \"${WORLD}\", \"mode\": \"${MODE}\", \"days\": ${DAYS}, \"seasons\": ${SEASONS}, \"anonymize\": ${ANON}, \"cp_dir\": \"$RUN_DIR/checkpoint\"}" \
+      "{\"seed\": ${SEED}, \"scenario\": \"${SCENARIO}\", \"club\": ${CLUB}, \"world\": \"${WORLD}\", \"mode\": \"${MODE}\", \"days\": ${DAYS}, \"seasons\": ${SEASONS}, \"anonymize\": ${ANON}, \"match_stops\": $([[ $MATCH_STOPS == 1 ]] && echo true || echo false), \"cp_dir\": \"$RUN_DIR/checkpoint\"}" \
       2>"$RUN_DIR/reset_err.txt" > "$RUN_DIR/initial_observation.json" \
       || echo "[setup] reset call failed rc=$? (attempt $_): $(head -c 120 "$RUN_DIR/initial_observation.json")"
     [[ -s "$RUN_DIR/initial_observation.json" ]] && break
