@@ -28,6 +28,7 @@ DAYS=""
 SEASONS="1"
 PARALLEL=8
 TAG=""
+MATCH_STOPS=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -41,6 +42,7 @@ while [[ $# -gt 0 ]]; do
         --seasons) SEASONS="$2"; shift 2 ;;
         --parallel) PARALLEL="$2"; shift 2 ;;
         --tag) TAG="$2"; shift 2 ;;
+        --match-stops) MATCH_STOPS="--match-stops"; shift ;;
         *) echo "unknown: $1"; exit 1 ;;
     esac
 done
@@ -104,11 +106,11 @@ run_one_job() {
     JOB_TIMEOUT="${JOB_TIMEOUT:-$(( (D + 399) / 400 * 3600 + 1800 ))}"
     if [[ "$C" == "auto" ]]; then
         timeout --kill-after=60 "$JOB_TIMEOUT" ./run_agent.sh --agent "$A" --mode "$M" --scenario "$SC" \
-            --seed "$S" --world "$W" --days "$D" --seasons "$SEASONS" \
+            --seed "$S" --world "$W" --days "$D" --seasons "$SEASONS" $MATCH_STOPS \
             > "$OUT.log" 2>&1
     else
         timeout --kill-after=60 "$JOB_TIMEOUT" ./run_agent.sh --agent "$A" --mode "$M" --scenario "$SC" --club "$C" \
-            --seed "$S" --world "$W" --days "$D" --seasons "$SEASONS" \
+            --seed "$S" --world "$W" --days "$D" --seasons "$SEASONS" $MATCH_STOPS \
             > "$OUT.log" 2>&1
     fi
     D2=$(grep -oE "[repo]/runs/[^ ]+" "$OUT.log" | head -1)
@@ -124,7 +126,7 @@ run_one_job() {
 # the tag silently vanish (skip logic read the previous grid's log and
 # skipped all jobs); missing SEASONS made the reset JSON malformed
 # (`"seasons": ,`) and every job died instantly.
-export TAG JOB_TIMEOUT SEASONS
+export TAG JOB_TIMEOUT SEASONS MATCH_STOPS
 export -f run_one_job
 
 printf '%s\n' "${JOBS[@]}" | xargs -P "$PARALLEL" -I{} bash -c 'run_one_job "$1"' _ {}
