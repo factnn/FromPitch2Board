@@ -8,10 +8,10 @@ edition = "2021"
 description = "FromPitch2Board: headless deterministic football-management agent environment and benchmark"
 
 [dependencies]
-ofm_core = { git = "https://github.com/factnn/openfootmanager.git", rev = "095a07f2" }
-engine = { git = "https://github.com/factnn/openfootmanager.git", rev = "095a07f2" }
-domain = { git = "https://github.com/factnn/openfootmanager.git", rev = "095a07f2" }
-db = { git = "https://github.com/factnn/openfootmanager.git", rev = "095a07f2" }
+ofm_core = { git = "https://github.com/factnn/openfootmanager.git", rev = "742e1398" }
+engine = { git = "https://github.com/factnn/openfootmanager.git", rev = "742e1398" }
+domain = { git = "https://github.com/factnn/openfootmanager.git", rev = "742e1398" }
+db = { git = "https://github.com/factnn/openfootmanager.git", rev = "742e1398" }
 chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

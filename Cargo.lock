@@ -462,12 +462,12 @@ dependencies = [
 [[package]]
 name = "db"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=742e1398#742e13986104e119f455c829f1fbc23dcac9c1ca"
 dependencies = [
  "chrono",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=742e1398)",
  "log",
- "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=742e1398)",
  "rusqlite",
  "rusqlite_migration",
  "serde",
@@ -535,7 +535,7 @@ dependencies = [
 [[package]]
 name = "domain"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=742e1398#742e13986104e119f455c829f1fbc23dcac9c1ca"
 dependencies = [
  "log",
  "serde",
@@ -544,7 +544,7 @@ dependencies = [
 [[package]]
 name = "domain"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=ce0c3129#ce0c3129a132fda2cab2b49ae10d9bb565b077ee"
 dependencies = [
  "log",
  "serde",
@@ -559,7 +559,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 [[package]]
 name = "engine"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=742e1398#742e13986104e119f455c829f1fbc23dcac9c1ca"
 dependencies = [
  "log",
  "rand",
@@ -569,7 +569,7 @@ dependencies = [
 [[package]]
 name = "engine"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=ce0c3129#ce0c3129a132fda2cab2b49ae10d9bb565b077ee"
 dependencies = [
  "log",
  "rand",
@@ -637,9 +637,9 @@ dependencies = [
  "chrono",
  "clap",
  "db",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
- "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
- "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=742e1398)",
+ "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=742e1398)",
+ "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=742e1398)",
  "rand",
  "rmcp",
  "serde",
@@ -1092,19 +1092,19 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
- "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=ce0c3129)",
+ "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=ce0c3129)",
 ]
 
 [[package]]
 name = "ofm_core"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=095a07f2#095a07f2abe9dc5e3f2aaf1f7c0705c5369afd2a"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=742e1398#742e13986104e119f455c829f1fbc23dcac9c1ca"
 dependencies = [
  "base64",
  "chrono",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
- "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=742e1398)",
+ "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=742e1398)",
  "hex",
  "log",
  "rand",
@@ -1119,12 +1119,12 @@ dependencies = [
 [[package]]
 name = "ofm_core"
 version = "0.3.0"
-source = "git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a#40ec2c8a29de85983430a0b248484eb72845ff62"
+source = "git+https://github.com/factnn/openfootmanager.git?rev=ce0c3129#ce0c3129a132fda2cab2b49ae10d9bb565b077ee"
 dependencies = [
  "base64",
  "chrono",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
- "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=40ec2c8a)",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=ce0c3129)",
+ "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=ce0c3129)",
  "hex",
  "log",
  "rand",

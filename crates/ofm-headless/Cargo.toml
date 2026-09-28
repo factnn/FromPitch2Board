@@ -5,7 +5,7 @@ edition = "2021"
 description = "Headless season runner / FromPitch2Board environment probe"
 
 [dependencies]
-domain = { git = "https://github.com/factnn/openfootmanager.git", rev = "40ec2c8a" }
-ofm_core = { git = "https://github.com/factnn/openfootmanager.git", rev = "40ec2c8a" }
+domain = { git = "https://github.com/factnn/openfootmanager.git", rev = "ce0c3129" }
+ofm_core = { git = "https://github.com/factnn/openfootmanager.git", rev = "ce0c3129" }
 chrono = "0.4"
 clap = { version = "4", features = ["derive"] }
