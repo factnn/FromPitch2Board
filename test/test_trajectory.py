@@ -1,5 +1,5 @@
 """Trajectory/scoring decoupling: run_agent.sh persists a TrajectoryRecord
-(final game state + metadata) via the MCP `dump` tool, and `clubbench
+(final game state + metadata) via the MCP `dump` tool, and `frompitch2board
 score-trajectory` re-scores it without re-running the agent."""
 
 import asyncio
@@ -12,7 +12,7 @@ import pytest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-from conftest import BIN_DIR, clubbench
+from conftest import BIN_DIR, frompitch2board
 
 
 def _free_port():
@@ -27,7 +27,7 @@ def _free_port():
 def server():
     port = _free_port()
     proc = subprocess.Popen(
-        [str(BIN_DIR / "clubbench-mcp"), "--port", str(port)],
+        [str(BIN_DIR / "frompitch2board-mcp"), "--port", str(port)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     for _ in range(50):
@@ -70,7 +70,7 @@ def test_dump_and_rescore(tmp_path, server):
     assert "initial_net_worth" in rec and "net_spend" in rec
 
     # re-score the saved trajectory via the CLI without re-running the agent
-    r = clubbench("score-trajectory", str(out))
+    r = frompitch2board("score-trajectory", str(out))
     assert r.returncode == 0, r.stderr
     # the re-scored metrics match what the live MCP score tool reported
     assert str(live["points"]) in r.stdout

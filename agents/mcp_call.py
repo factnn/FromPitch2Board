@@ -1,4 +1,4 @@
-"""One-shot MCP tool call against the ClubBench MCP server.
+"""One-shot MCP tool call against the FromPitch2Board MCP server.
 
 Used by run_agent.sh to set up the episode (reset) and collect the final
 score, so the agent launch stays a one-command flow.

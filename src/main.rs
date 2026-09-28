@@ -1,20 +1,20 @@
-//! ClubBench CLI.
+//! FromPitch2Board CLI.
 //!
 //! `gate0`    — the original lineup/tactics experiment (single-action baselines).
 //! `cadence`  — the decision-cadence experiment: the agent is consulted at every
 //!              matchday and transfer offer, producing a long decision trajectory.
 
-use clubbench::agents::{Agent, BestXIAgent, NoopAgent, RandomXIAgent, StyleProbe, WorstXIAgent};
-use clubbench::episode_agents::{
+use frompitch2board::agents::{Agent, BestXIAgent, NoopAgent, RandomXIAgent, StyleProbe, WorstXIAgent};
+use frompitch2board::episode_agents::{
     AutoManager, GreedyManager, OffersOnlyManager, PassiveManager, Policy, ProactiveManager,
     SellingManager,
 };
-use clubbench::run::{run_episode, run_episode_cadence_for_world};
-use clubbench::score;
+use frompitch2board::run::{run_episode, run_episode_cadence_for_world};
+use frompitch2board::score;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "clubbench", about = "ClubBench environment experiments")]
+#[command(name = "frompitch2board", about = "FromPitch2Board environment experiments")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -175,9 +175,9 @@ fn main() {
 /// per-track Greedy reference. Example: coach LLM 75 / Greedy 68 (+7), manager
 /// LLM 70 / Greedy 72 (−2) → "relative advantage drops by 9 league points".
 fn gap(files: &[String]) {
-    use clubbench::env::{AgentMode, ClubPick, ScenarioBudget, WorldSize};
-    use clubbench::episode_agents::{GreedyCoach, GreedyManager};
-    use clubbench::run::{run_episode_cadence_with_mode, TrajectoryRecord};
+    use frompitch2board::env::{AgentMode, ClubPick, ScenarioBudget, WorldSize};
+    use frompitch2board::episode_agents::{GreedyCoach, GreedyManager};
+    use frompitch2board::run::{run_episode_cadence_with_mode, TrajectoryRecord};
     use std::collections::BTreeMap;
 
     // load records
@@ -261,21 +261,21 @@ fn gap(files: &[String]) {
 
 /// Build and save the frozen calibration set, per track.
 fn calibrate(world_str: &str, clubs_str: &str, scenarios_str: &str, count: u64, days: u64, mode_str: &str, out: Option<&str>) {
-    use clubbench::env::AgentMode;
-    use clubbench::score::build_calibration;
+    use frompitch2board::env::AgentMode;
+    use frompitch2board::score::build_calibration;
     let world = world_size(world_str);
     let mode = if mode_str == "coach" { AgentMode::Coach } else { AgentMode::Manager };
     let scenarios: Vec<&str> = scenarios_str.split(',').map(str::trim).collect();
     let cells: Vec<(String, usize)> = if clubs_str.trim().is_empty() {
         // Archetype-only: calibrate each scenario's own fixed club rank.
-        scenarios.iter().map(|s| (s.to_string(), clubbench::env::ScenarioBudget::club_rank(s))).collect()
+        scenarios.iter().map(|s| (s.to_string(), frompitch2board::env::ScenarioBudget::club_rank(s))).collect()
     } else {
         let clubs: Vec<usize> = clubs_str.split(',').filter_map(|s| s.trim().parse().ok()).collect();
         scenarios.iter().flat_map(|s| clubs.iter().map(|&c| (s.to_string(), c))).collect()
     };
     let seeds: Vec<u64> = (0..count).collect();
     println!(
-        "ClubBench Calibrate — world={world:?}, mode={mode:?}, cells={cells:?}, {count} seeds × {days} days"
+        "FromPitch2Board Calibrate — world={world:?}, mode={mode:?}, cells={cells:?}, {count} seeds × {days} days"
     );
     let cal = build_calibration(world, &cells, &seeds, days, mode);
     let result = match out {
@@ -296,7 +296,7 @@ fn calibrate(world_str: &str, clubs_str: &str, scenarios_str: &str, count: u64, 
 /// Load saved trajectory records and print their metrics (the decoupled
 /// re-scoring entry point — no agent re-run needed).
 fn score_trajectory(files: &[String]) {
-    use clubbench::run::TrajectoryRecord;
+    use frompitch2board::run::TrajectoryRecord;
     println!("{:<10} {:>5} {:>6} {:>6} {:>5} {:>12} {:>12} {:>7} {:>6} {:>12} {:>12}",
         "file", "seed", "club", "mode", "pts", "balance", "squad_val", "avg_age", "size", "net_value", "net_spend");
     for f in files {
@@ -327,8 +327,8 @@ fn multi_season(
     mode_str: &str,
     json: bool,
 ) {
-    use clubbench::env::{AgentMode, ClubPick, ScenarioBudget, WorldSize};
-    use clubbench::run::run_multi_season;
+    use frompitch2board::env::{AgentMode, ClubPick, ScenarioBudget, WorldSize};
+    use frompitch2board::run::run_multi_season;
 
     let world = match world_str {
         "standard" => WorldSize::Standard,
@@ -357,7 +357,7 @@ fn multi_season(
         println!("{}", serde_json::to_string_pretty(&snaps).unwrap_or_default());
         return;
     }
-    println!("ClubBench Dynasty — {} seasons, {} days/season, policy={} scenario={} club={} seed={} world={:?} mode={:?}",
+    println!("FromPitch2Board Dynasty — {} seasons, {} days/season, policy={} scenario={} club={} seed={} world={:?} mode={:?}",
         seasons, season_days, policy_name, scenario, club, seed, world, mode);
     println!("{:<7} {:>6} {:>5} {:>12} {:>12} {:>7} {:>6} {:>12} {:>12}", "season", "pts", "pos", "balance", "squad_val", "avg_age", "size", "net_value", "net_spend");
     for s in &snaps {
@@ -377,8 +377,8 @@ fn run_benchmark(
     scenarios_str: &str,
     mode_str: &str,
 ) {
-    use clubbench::env::{AgentMode, ClubPick, ScenarioBudget};
-    use clubbench::score::{collect_paired_for_mode, DimReport};
+    use frompitch2board::env::{AgentMode, ClubPick, ScenarioBudget};
+    use frompitch2board::score::{collect_paired_for_mode, DimReport};
     use std::collections::BTreeMap;
 
     let mode = match mode_str.trim().to_lowercase().as_str() {
@@ -396,7 +396,7 @@ fn run_benchmark(
     // Archetype fusion: each scenario runs on its own fixed club rank unless
     // the caller explicitly overrides with --clubs.
     let clubs_of = |scenario: &str| -> Vec<usize> {
-        explicit_clubs.clone().unwrap_or_else(|| vec![clubbench::env::ScenarioBudget::club_rank(scenario)])
+        explicit_clubs.clone().unwrap_or_else(|| vec![frompitch2board::env::ScenarioBudget::club_rank(scenario)])
     };
 
     let clubs_label = explicit_clubs
@@ -404,7 +404,7 @@ fn run_benchmark(
         .map(|c| format!("{c:?}"))
         .unwrap_or_else(|| "archetype-per-scenario".to_string());
     println!(
-        "ClubBench Benchmark — mode={:?}, world={:?}, {} seeds, clubs={}, scenarios={:?}",
+        "FromPitch2Board Benchmark — mode={:?}, world={:?}, {} seeds, clubs={}, scenarios={:?}",
         mode,
         world,
         seeds.len(),
@@ -413,7 +413,7 @@ fn run_benchmark(
     );
     println!(
         "reference = {}",
-        if mode == AgentMode::Coach { "GreedyCoach (frozen, Balanced)" } else { "ClubBench-Greedy-v1 (frozen GreedyManager, Balanced)" }
+        if mode == AgentMode::Coach { "GreedyCoach (frozen, Balanced)" } else { "FromPitch2Board-Greedy-v1 (frozen GreedyManager, Balanced)" }
     );
     if seeds.len() < 8 {
         println!("note: Z is noisy with <8 seeds (reference σ is estimated from few samples); use 8+ seeds for stable leaderboards.\n");
@@ -422,24 +422,24 @@ fn run_benchmark(
     }
 
     // Coach scores only points (+ avg_age diagnostic); Manager all seven.
-    let dims: Vec<&str> = clubbench::score::dimensions_for(mode)
+    let dims: Vec<&str> = frompitch2board::score::dimensions_for(mode)
         .iter()
         .map(|d| d.name)
         .collect();
     let mut candidates: Vec<Box<dyn Policy>> = if mode == AgentMode::Coach {
         vec![
-            Box::new(clubbench::episode_agents::GreedyCoach { play_style: domain::team::PlayStyle::Balanced }),
-            Box::new(clubbench::episode_agents::CoachBestXI { play_style: domain::team::PlayStyle::Attacking }),
-            Box::new(clubbench::episode_agents::CoachBestXI { play_style: domain::team::PlayStyle::Balanced }),
-            Box::new(clubbench::episode_agents::CoachBestXI { play_style: domain::team::PlayStyle::Defensive }),
-            Box::new(clubbench::episode_agents::CoachRandom),
-            Box::new(clubbench::episode_agents::CoachWorst),
+            Box::new(frompitch2board::episode_agents::GreedyCoach { play_style: domain::team::PlayStyle::Balanced }),
+            Box::new(frompitch2board::episode_agents::CoachBestXI { play_style: domain::team::PlayStyle::Attacking }),
+            Box::new(frompitch2board::episode_agents::CoachBestXI { play_style: domain::team::PlayStyle::Balanced }),
+            Box::new(frompitch2board::episode_agents::CoachBestXI { play_style: domain::team::PlayStyle::Defensive }),
+            Box::new(frompitch2board::episode_agents::CoachRandom),
+            Box::new(frompitch2board::episode_agents::CoachWorst),
         ]
     } else {
         vec![
-            Box::new(clubbench::episode_agents::RandomManager),
+            Box::new(frompitch2board::episode_agents::RandomManager),
             Box::new(PassiveManager),
-            Box::new(clubbench::episode_agents::GreedyManager::new(domain::team::PlayStyle::Balanced)),
+            Box::new(frompitch2board::episode_agents::GreedyManager::new(domain::team::PlayStyle::Balanced)),
             Box::new(ProactiveManager::new(domain::team::PlayStyle::Attacking)),
             Box::new(SellingManager::new(domain::team::PlayStyle::Attacking)),
             Box::new(AutoManager::new(domain::team::PlayStyle::Balanced)),
@@ -458,7 +458,7 @@ fn run_benchmark(
             println!("=== scenario={}  club-rank={} ===", scenario, club);
 
             // Reference raw baseline (difficulty anchor): its own mean metrics.
-            let ref_m = clubbench::score::reference_mean_metrics(&pick, world, &budget, mode, &seeds, days);
+            let ref_m = frompitch2board::score::reference_mean_metrics(&pick, world, &budget, mode, &seeds, days);
             println!(
                 "  reference raw: pts={:.1}  balance={:.0}  net_value={:.0}  squad_value={:.0}  squad_size={:.1}",
                 ref_m.points, ref_m.balance, ref_m.net_value, ref_m.squad_value, ref_m.squad_size
@@ -506,11 +506,11 @@ fn fmt_z(z: Option<f64>) -> String {
     }
 }
 
-fn world_size(s: &str) -> clubbench::env::WorldSize {
+fn world_size(s: &str) -> frompitch2board::env::WorldSize {
     match s.trim().to_lowercase().as_str() {
-        "compact" => clubbench::env::WorldSize::Compact,
-        "standard" => clubbench::env::WorldSize::Standard,
-        _ => clubbench::env::WorldSize::Medium,
+        "compact" => frompitch2board::env::WorldSize::Compact,
+        "standard" => frompitch2board::env::WorldSize::Standard,
+        _ => frompitch2board::env::WorldSize::Medium,
     }
 }
 
@@ -519,18 +519,18 @@ fn score_cmd(seeds_str: &str, days: u64, club: Option<usize>, world: &str, scena
         .split(',')
         .filter_map(|s| s.trim().parse().ok())
         .collect();
-    let pick = club.map(|rank| clubbench::env::ClubPick::Strength(rank));
+    let pick = club.map(|rank| frompitch2board::env::ClubPick::Strength(rank));
     let world = world_size(world);
-    let budget = clubbench::env::ScenarioBudget::by_name(scenario);
+    let budget = frompitch2board::env::ScenarioBudget::by_name(scenario);
     println!(
-        "ClubBench Score — paired-seed, reference-relative ({} seeds, {} days, club={:?}, world={:?}, scenario={})",
+        "FromPitch2Board Score — paired-seed, reference-relative ({} seeds, {} days, club={:?}, world={:?}, scenario={})",
         seeds.len(),
         days,
         club,
         world,
         scenario
     );
-    println!("reference = ClubBench-Greedy-v1 (frozen GreedyManager, Balanced)\n");
+    println!("reference = FromPitch2Board-Greedy-v1 (frozen GreedyManager, Balanced)\n");
 
     let mut candidates: Vec<Box<dyn Policy>> = vec![
         Box::new(GreedyManager::new(domain::team::PlayStyle::Balanced)),
@@ -540,7 +540,7 @@ fn score_cmd(seeds_str: &str, days: u64, club: Option<usize>, world: &str, scena
         Box::new(SellingManager::new(domain::team::PlayStyle::Attacking)),
         Box::new(OffersOnlyManager),
         Box::new(PassiveManager),
-        Box::new(clubbench::episode_agents::RandomManager),
+        Box::new(frompitch2board::episode_agents::RandomManager),
     ];
 
     for candidate in candidates.iter_mut() {
@@ -570,7 +570,7 @@ fn gate0(seeds_str: &str, days: u64) {
         Box::new(WorstXIAgent),
     ];
 
-    println!("ClubBench Gate 0 — lineup/tactics effectiveness ({} days/episode)", days);
+    println!("FromPitch2Board Gate 0 — lineup/tactics effectiveness ({} days/episode)", days);
     println!("{:<18} {:>5} {:>4} {:>4} {:>4} {:>4} {:>5} {:>8}", "agent", "seed", "pos", "P", "W", "D", "pts", "GF:GA");
 
     let mut agg: std::collections::BTreeMap<String, (f64, f64, f64)> = std::collections::BTreeMap::new();
@@ -600,14 +600,14 @@ fn cadence(seeds_str: &str, days: u64, world: &str, scenario: &str) {
         .filter_map(|s| s.trim().parse().ok())
         .collect();
     let world = world_size(world);
-    let budget = clubbench::env::ScenarioBudget::by_name(scenario);
+    let budget = frompitch2board::env::ScenarioBudget::by_name(scenario);
     let mut policies: Vec<Box<dyn Policy>> = vec![
         Box::new(AutoManager::new(domain::team::PlayStyle::Attacking)),
         Box::new(OffersOnlyManager),
         Box::new(PassiveManager),
     ];
 
-    println!("ClubBench Cadence — long decision trajectory ({} days/episode, world={:?}, scenario={})", days, world, scenario);
+    println!("FromPitch2Board Cadence — long decision trajectory ({} days/episode, world={:?}, scenario={})", days, world, scenario);
     println!(
         "{:<14} {:>5} {:>6} {:>4} {:>4} {:>4} {:>4} {:>5} {:>8}",
         "policy", "seed", "steps", "pos", "P", "W", "D", "pts", "GF:GA"
@@ -616,7 +616,7 @@ fn cadence(seeds_str: &str, days: u64, world: &str, scenario: &str) {
     let mut agg: std::collections::BTreeMap<String, (f64, f64, f64, f64)> = std::collections::BTreeMap::new();
     for seed in &seeds {
         for policy in policies.iter_mut() {
-            let r = run_episode_cadence_for_world(*seed, &clubbench::env::ClubPick::Index(0), world, &budget, days, policy.as_mut());
+            let r = run_episode_cadence_for_world(*seed, &frompitch2board::env::ClubPick::Index(0), world, &budget, days, policy.as_mut());
             println!(
                 "{:<14} {:>5} {:>6} {:>4} {:>4} {:>4} {:>4} {:>5} {:>3}:{:<3}",
                 policy.name(), seed, r.steps, r.metrics.position, r.played, r.won, r.drawn, r.metrics.points, r.goals_for, r.goals_against

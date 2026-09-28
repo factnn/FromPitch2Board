@@ -2,7 +2,7 @@
 
 The server is started, then a real MCP client connects and drives an episode:
 reset → observe → act (Continue) → score. Requires the `mcp` python package
-and the compiled `clubbench-mcp` binary.
+and the compiled `frompitch2board-mcp` binary.
 """
 
 import asyncio
@@ -30,7 +30,7 @@ def _free_port():
 def server():
     port = _free_port()
     proc = subprocess.Popen(
-        [str(BIN_DIR / "clubbench-mcp"), "--port", str(port)],
+        [str(BIN_DIR / "frompitch2board-mcp"), "--port", str(port)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     # Wait for the server to accept connections.

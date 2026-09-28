@@ -2,7 +2,7 @@
 net_spend and wage_bill are *constraints* — only budget violations are scored,
 never "spend as little as possible". avg_age is a diagnostic (raw only)."""
 
-from conftest import clubbench, parse_blocks
+from conftest import frompitch2board, parse_blocks
 
 
 def _proactive_block(stdout):
@@ -13,7 +13,7 @@ def _proactive_block(stdout):
 
 
 def test_finance_dimensions_reported():
-    r = clubbench("score", "--scenario", "rebuild", "--club", "15", "--seeds", "42",
+    r = frompitch2board("score", "--scenario", "rebuild", "--club", "15", "--seeds", "42",
                   "--days", "200", "--world", "compact")
     assert r.returncode == 0, r.stderr
     block = _proactive_block(r.stdout)
@@ -28,7 +28,7 @@ def test_finance_dimensions_reported():
 def test_within_budget_is_zero_violation():
     """A candidate that spends inside the £50M transfer budget has no
     transfer-budget violation (0 = healthy), regardless of how much it spends."""
-    r = clubbench("score", "--scenario", "rebuild", "--club", "15", "--seeds", "42",
+    r = frompitch2board("score", "--scenario", "rebuild", "--club", "15", "--seeds", "42",
                   "--days", "300", "--world", "compact")
     assert r.returncode == 0, r.stderr
     block = _proactive_block(r.stdout)

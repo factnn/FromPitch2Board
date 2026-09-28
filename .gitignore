@@ -36,7 +36,7 @@ runs/
 /artifacts/
 
 # Reference material — local-only
-/ClubBench_reference_pack*/
+/FromPitch2Board_reference_pack*/
 /ref_benchmark/
 
 # Local notes and scratch — not part of this repository

@@ -1,7 +1,7 @@
 #!/bin/bash
-# run_agent.sh — one-command ClubBench agent evaluation.
+# run_agent.sh — one-command FromPitch2Board agent evaluation.
 #
-# Builds a sandboxed workspace, starts the ClubBench MCP server, sets up the
+# Builds a sandboxed workspace, starts the FromPitch2Board MCP server, sets up the
 # episode (reset), launches a CLI agent (Claude Code / Codex) that plays it via
 # MCP tools, then records the final score.
 #
@@ -135,7 +135,7 @@ fi
 cat > "$RUN_DIR/.mcp.json" <<JSON
 {
   "mcpServers": {
-    "clubbench": {
+    "frompitch2board": {
       "type": "http",
       "url": "http://127.0.0.1:${PORT}/mcp",
       "enabled": true
@@ -145,13 +145,13 @@ cat > "$RUN_DIR/.mcp.json" <<JSON
 JSON
 
 echo "=================================================="
-echo "ClubBench agent run"
+echo "FromPitch2Board agent run"
 echo "  agent=$AGENT mode=$MODE scenario=$SCENARIO club=$CLUB seed=$SEED world=$WORLD days=$DAYS"
 echo "  workspace: $RUN_DIR"
 echo "=================================================="
 
 # ---- start MCP server ----
-./target/debug/clubbench-mcp --port "$PORT" > "$RUN_DIR/mcp.log" 2>&1 &
+./target/debug/frompitch2board-mcp --port "$PORT" > "$RUN_DIR/mcp.log" 2>&1 &
 MCP_PID=$!
 trap 'kill $MCP_PID 2>/dev/null' EXIT
 
@@ -193,7 +193,7 @@ echo "[setup] prompt built for club: $CLUB_NAME"
 
 # ---- isolated agent workspace (path resolved BEFORE the pi prompt appendix,
 #      which embeds it) ----
-WS_DIR="/tmp/clubbench-ws/$(basename "$RUN_DIR")"
+WS_DIR="/tmp/frompitch2board-ws/$(basename "$RUN_DIR")"
 
 # Pi has no MCP integration out of the box; it reaches the env through its
 # built-in bash tool calling mcp_call.py (pi's minimal-tools philosophy).
@@ -231,7 +231,7 @@ fi
 # The agent must only see ITS OWN workspace + the env interface (MCP /
 # mcp_call.py). Everything else — the repository, other runs' trajectories, the
 # env source — is hidden by running the agent as the unprivileged
-# `clubbench-agent` user while the repo is root-only (chmod 700). llm has no
+# `frompitch2board-agent` user while the repo is root-only (chmod 700). llm has no
 # shell access (pure API harness) so it keeps running as root; its API key is
 # injected through env as before.
 mkdir -p "$WS_DIR"
@@ -255,7 +255,7 @@ elif [[ "$AGENT" == "codex" ]]; then
     cp agents/codex/models.json "$WS_DIR/.codex/models.json"
     cp "$RUN_DIR/.mcp.json" "$WS_DIR/.mcp.json"
 fi
-chown -R clubbench-agent:clubbench-agent "$WS_DIR" 2>/dev/null || true
+chown -R frompitch2board-agent:frompitch2board-agent "$WS_DIR" 2>/dev/null || true
 
 # ---- resolve the agent binary ----
 # Find the claude CLI: $CLAUDE_BIN override > PATH > the shared claude_tool
@@ -296,9 +296,9 @@ elif [[ "$AGENT" == "pi" ]]; then
     # Group B: Pi harness. Native DeepSeek provider (env DEEPSEEK_API_KEY).
     # The env is reached through pi's built-in bash tool calling mcp_call.py —
     # pi's minimal-tools philosophy: read/write/edit/bash + extensions.
-    # /opt/clubbench-tools/pi is the world-readable copy — the agent runs as
-    # clubbench-agent and cannot traverse /root (where npm-global lives).
-    PI_BIN="${PI_BIN:-/opt/clubbench-tools/pi}"
+    # /opt/frompitch2board-tools/pi is the world-readable copy — the agent runs as
+    # frompitch2board-agent and cannot traverse /root (where npm-global lives).
+    PI_BIN="${PI_BIN:-/opt/frompitch2board-tools/pi}"
     # pi's native default is minimal (= no thinking); the protocol aligns all
     # harnesses at max reasoning, so default to xhigh (pi maps xhigh→"max").
     # Override with PI_THINKING=off|minimal|low|medium|high|xhigh.
@@ -314,12 +314,12 @@ fi
 # --dangerously-skip-permissions even under root (the flagbench pattern).
 # `claude -p` produces one autonomous response; if the season isn't over it may
 # stop early, so loop a "continue" prompt until the episode reports done.
-# ALL agents run unprivileged (clubbench-agent) inside their isolated
+# ALL agents run unprivileged (frompitch2board-agent) inside their isolated
 # workspace — same sandbox surface for every harness, no exceptions.
 AGENT_PATH="${AGENT_PATH:-/usr/local/bin:/usr/bin:/bin}"
 launch_agent() {
     (export HOME="$WS_DIR" PATH="$AGENT_PATH" IS_SANDBOX=1
-     setpriv --reuid clubbench-agent --regid clubbench-agent --init-groups \
+     setpriv --reuid frompitch2board-agent --regid frompitch2board-agent --init-groups \
          bash -c 'cd "$0" && exec "$@"' "$WS_DIR" "${AGENT_CMD[@]}")
 }
 CONTINUE_PROMPT="The season is not over yet. Continue managing the club: observe, act, and keep playing until the observation reports \"done\": true. Do not summarise or stop early."
@@ -441,7 +441,7 @@ meta = {
     "seed": int(seed), "scenario": scenario, "club": int(club),
     "world": world, "track": mode, "horizon_days": int(days), "seasons": int(seasons),
     "anonymized": anon == "true",
-    "env_commit_clubbench": git_rev(os.environ.get("CLUBBENCH_REPO", os.getcwd())),
+    "env_commit_frompitch2board": git_rev(os.environ.get("FROMPITCH2BOARD_REPO", os.getcwd())),
     "started_ts": start_ts,
     "wall_time_s": round(time.time() - float(start_ts), 2),
     "completed": score_ok,

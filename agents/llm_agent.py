@@ -6,7 +6,7 @@ one action → act) with a model-swappable backbone. Unlike Claude Code / Codex
 tools and loop are identical for every model, so differences in results isolate
 the foundation model's agentic management capability.
 
-It drives a ClubBench MCP server (which run_agent.sh has already reset). The
+It drives a FromPitch2Board MCP server (which run_agent.sh has already reset). The
 LLM is called via the Anthropic-compatible messages API, configured by env:
   ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN, ANTHROPIC_MODEL
 (defaults point at DeepSeek). Set `--model` to override.
@@ -269,7 +269,7 @@ def main():
         else:
             print(f"unknown arg: {args[0]}", file=sys.stderr); sys.exit(2)
     briefing = open(prompt_file).read() if prompt_file else (
-        "You are an autonomous football club manager. Use the ClubBench MCP "
+        "You are an autonomous football club manager. Use the FromPitch2Board MCP "
         "tools (observe / act / score) to manage the club through the season."
     )
     # Logging lives next to the prompt (run_agent.sh's RUN_DIR).

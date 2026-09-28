@@ -1,4 +1,4 @@
-"""Token + cost report for a ClubBench agent run.
+"""Token + cost report for a FromPitch2Board agent run.
 
 Parses the run's agent_output.jsonl (Claude Code stream-json) and sums the
 per-message usage: input tokens, output tokens, cache read, and an estimated

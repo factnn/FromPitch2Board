@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Play a ClubBench coach-mode episode via MCP, applying a condition-aware
+"""Play a FromPitch2Board coach-mode episode via MCP, applying a condition-aware
 best-XI policy.
 
 Selection: effective_rating = ovr * condition/100 (matches the engine's

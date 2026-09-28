@@ -2,7 +2,7 @@
 name = "ofm-headless"
 version = "0.1.0"
 edition = "2021"
-description = "Headless season runner / ClubBench environment probe"
+description = "Headless season runner / FromPitch2Board environment probe"
 
 [dependencies]
 domain = { git = "https://github.com/factnn/openfootmanager.git", rev = "40ec2c8a" }

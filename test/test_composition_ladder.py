@@ -17,7 +17,7 @@ import time
 import pytest
 
 REPO = str(Path(__file__).resolve().parent.parent)
-BIN = os.path.join(REPO, "target/debug/clubbench-mcp")
+BIN = os.path.join(REPO, "target/debug/frompitch2board-mcp")
 
 
 def free_port():
@@ -39,7 +39,7 @@ def mcp(url, tool, args="{}"):
 @pytest.fixture()
 def episode(tmp_path):
     if not os.path.exists(BIN):
-        pytest.skip("clubbench-mcp binary not built")
+        pytest.skip("frompitch2board-mcp binary not built")
     port = free_port()
     url = f"http://127.0.0.1:{port}/mcp"
     proc = subprocess.Popen([BIN, "--port", str(port)],

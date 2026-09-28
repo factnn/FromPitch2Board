@@ -2,7 +2,7 @@
 # scoring; the football simulator (ofm_core) is a pinned git dependency on the
 # OpenFoot Manager fork, NOT forked into this repo.
 [package]
-name = "clubbench"
+name = "frompitch2board"
 version = "0.1.0"
 edition = "2021"
 description = "FromPitch2Board: headless deterministic football-management agent environment and benchmark"

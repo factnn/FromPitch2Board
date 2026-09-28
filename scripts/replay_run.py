@@ -13,7 +13,7 @@ market day).
 Used to attribute skipped decisions (`Continue`) to event type.
 
 Usage:
-  python scripts/replay_run.py runs/<run_id> [--mcp target/debug/clubbench-mcp]
+  python scripts/replay_run.py runs/<run_id> [--mcp target/debug/frompitch2board-mcp]
 """
 
 import argparse
@@ -177,7 +177,7 @@ async def replay(run_dir: Path, mcp_bin: Path, out_path: Path, cp_dir: Path | No
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir", type=Path)
-    ap.add_argument("--mcp", default=str(ROOT / "target/debug/clubbench-mcp"))
+    ap.add_argument("--mcp", default=str(ROOT / "target/debug/frompitch2board-mcp"))
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--cp-dir", type=Path, default=None,
                     help="write simulator checkpoints here while replaying, so a "

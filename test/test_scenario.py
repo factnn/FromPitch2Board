@@ -6,7 +6,7 @@ squad value unchanged. With a `rebuild` budget (£50M) it buys → squad value
 grows (measured by squad_value, since buying into the healthy 22-26 range keeps
 the squad_size distance at 0)."""
 
-from conftest import clubbench, parse_blocks
+from conftest import frompitch2board, parse_blocks
 
 
 def _proactive_squad_value_delta(stdout):
@@ -17,7 +17,7 @@ def _proactive_squad_value_delta(stdout):
 
 
 def test_crisis_budget_blocks_buying():
-    r = clubbench("score", "--scenario", "crisis", "--club", "15", "--seeds", "42",
+    r = frompitch2board("score", "--scenario", "crisis", "--club", "15", "--seeds", "42",
                   "--days", "300", "--world", "compact")
     assert r.returncode == 0, r.stderr
     # £5M budget → can't afford a meaningful transfer → squad value unchanged.
@@ -25,7 +25,7 @@ def test_crisis_budget_blocks_buying():
 
 
 def test_rebuild_budget_enables_buying():
-    r = clubbench("score", "--scenario", "rebuild", "--club", "15", "--seeds", "42",
+    r = frompitch2board("score", "--scenario", "rebuild", "--club", "15", "--seeds", "42",
                   "--days", "300", "--world", "compact")
     assert r.returncode == 0, r.stderr
     # £50M budget → buys players → squad value grows vs the reference.
@@ -33,7 +33,7 @@ def test_rebuild_budget_enables_buying():
 
 
 def test_scenario_name_in_header():
-    r = clubbench("score", "--scenario", "moneyball", "--seeds", "42", "--days", "60",
+    r = frompitch2board("score", "--scenario", "moneyball", "--seeds", "42", "--days", "60",
                   "--world", "compact", "--club", "0")
     assert r.returncode == 0, r.stderr
     assert "scenario=moneyball" in r.stdout

@@ -1,13 +1,13 @@
-# ClubBench
+# FromPitch2Board
 
 **A deterministic benchmark for long-horizon management agents.**
 
-ClubBench evaluates autonomous agents — not isolated language models — inside a
+FromPitch2Board evaluates autonomous agents — not isolated language models — inside a
 headless football-club-management simulation. It asks where an agent's
 capability comes from: the foundation model, the surrounding scaffold, the scope
 of responsibility, the granularity of control, or the decision horizon.
 
-![ClubBench overview](assets/overview.png)
+![FromPitch2Board overview](assets/overview.png)
 
 ## Five configurable factors, one simulator
 
@@ -148,7 +148,7 @@ Trajectories can be produced without a language model, for baselines and
 controls:
 
 ```bash
-./target/debug/clubbench multi --seasons 10 --policy greedy \
+./target/debug/frompitch2board multi --seasons 10 --policy greedy \
   --scenario rebuild --club 75 --seed 42 --world medium --mode manager
 ```
 

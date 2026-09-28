@@ -17,7 +17,7 @@ import time
 import pytest
 
 REPO = str(Path(__file__).resolve().parent.parent)
-BIN = os.path.join(REPO, "target/debug/clubbench-mcp")
+BIN = os.path.join(REPO, "target/debug/frompitch2board-mcp")
 
 
 def free_port():
@@ -68,7 +68,7 @@ def play(url, n_acts):
 
 def test_checkpoint_resume_is_deterministic(tmp_path):
     if not os.path.exists(BIN):
-        pytest.skip("clubbench-mcp binary not built")
+        pytest.skip("frompitch2board-mcp binary not built")
     cp_dir = str(tmp_path / "checkpoint")
 
     # --- interrupted run: 12 acts, then kill the server ---

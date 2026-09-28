@@ -1,4 +1,4 @@
-//! Headless season runner — the first step of the ClubBench environment probe.
+//! Headless season runner — the first step of the FromPitch2Board environment probe.
 //!
 //! What it proves:
 //!   1. a full season can be driven headlessly (no Tauri/GUI) via
@@ -23,7 +23,7 @@ use ofm_core::turn;
 use std::time::Instant;
 
 #[derive(Parser)]
-#[command(name = "ofm-headless", about = "Headless season runner / ClubBench environment probe")]
+#[command(name = "ofm-headless", about = "Headless season runner / FromPitch2Board environment probe")]
 struct Cli {
     /// Episode seed — same seed ⇒ same initial world + same trajectory
     #[arg(long, default_value_t = 42)]
@@ -158,7 +158,7 @@ fn main() {
         let same_content = content_fingerprint(&game_a) == content_fingerprint(&game_b);
         println!("trajectory identical (content): {}", same_content);
         println!(
-            "=> findings: {}. ClubBench can reset an episode with `rng::set_seed(scenario_seed)`.",
+            "=> findings: {}. FromPitch2Board can reset an episode with `rng::set_seed(scenario_seed)`.",
             if same_content { "initial world AND season trajectory are seed-reproducible" }
             else { "initial world is seed-reproducible, but the season trajectory diverges" }
         );

@@ -1,4 +1,4 @@
-//! ClubBench MCP server — exposes the headless environment to any MCP-capable
+//! FromPitch2Board MCP server — exposes the headless environment to any MCP-capable
 //! agent (Claude Code, Codex, Gemini CLI, …) via standard tools.
 //!
 //! Tools: `reset` (start an episode), `observe` (current state JSON),
@@ -23,7 +23,7 @@ use crate::env::{AgentMode, ClubPick, ScenarioBudget, WorldSize};
 use crate::episode::{Action, Episode};
 
 #[derive(Clone)]
-pub struct ClubBenchMcp {
+pub struct FromPitch2BoardMcp {
     episode: Arc<Mutex<Option<Episode>>>,
     /// Metadata of the most recent reset, needed to build a TrajectoryRecord
     /// when `dump` is called.
@@ -122,13 +122,13 @@ fn read_checkpoint(
     ))
 }
 
-impl Default for ClubBenchMcp {
+impl Default for FromPitch2BoardMcp {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ClubBenchMcp {
+impl FromPitch2BoardMcp {
     pub fn new() -> Self {
         Self {
             episode: Arc::new(Mutex::new(None)),
@@ -368,11 +368,11 @@ impl ClubBenchMcp {
     }
 }
 
-impl ServerHandler for ClubBenchMcp {
+impl ServerHandler for FromPitch2BoardMcp {
     fn get_info(&self) -> ServerInfo {
         let capabilities = ServerCapabilities::builder().enable_tools().build();
         ServerInfo::new(capabilities)
-            .with_server_info(Implementation::new("ClubBench MCP Server", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("FromPitch2Board MCP Server", env!("CARGO_PKG_VERSION")))
     }
 
     fn list_tools(
@@ -419,7 +419,7 @@ impl ServerHandler for ClubBenchMcp {
 
 /// Start the MCP server over Streamable HTTP on `127.0.0.1:port`.
 pub async fn serve(port: u16) -> Result<(), String> {
-    let handler = ClubBenchMcp::new();
+    let handler = FromPitch2BoardMcp::new();
     let session_manager =
         rmcp::transport::streamable_http_server::session::local::LocalSessionManager::default();
     let service_factory = move || Ok::<_, std::io::Error>(handler.clone());

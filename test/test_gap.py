@@ -13,7 +13,7 @@ import pytest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-from conftest import BIN_DIR, clubbench
+from conftest import BIN_DIR, frompitch2board
 
 
 def _free_port():
@@ -28,7 +28,7 @@ def _free_port():
 def server():
     port = _free_port()
     proc = subprocess.Popen(
-        [str(BIN_DIR / "clubbench-mcp"), "--port", str(port)],
+        [str(BIN_DIR / "frompitch2board-mcp"), "--port", str(port)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     for _ in range(50):
@@ -68,7 +68,7 @@ def test_gap_computes_both_metrics(tmp_path, server):
                 await _drive_and_dump(session, "manager", mgr)
     asyncio.run(run())
 
-    r = clubbench("gap", str(tmp_path / "coach.json"), str(tmp_path / "manager.json"))
+    r = frompitch2board("gap", str(tmp_path / "coach.json"), str(tmp_path / "manager.json"))
     assert r.returncode == 0, r.stderr
     assert "G_Δ(pts)" in r.stdout  # header
     assert "llm" in r.stdout       # the agent row is reported

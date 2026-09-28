@@ -1,4 +1,4 @@
-//! ClubBench — the headless, deterministic football-management environment and
+//! FromPitch2Board — the headless, deterministic football-management environment and
 //! its baseline agents.
 //!
 //! The environment mirrors the game's own "delegate" match path: the user's

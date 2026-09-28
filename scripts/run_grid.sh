@@ -1,5 +1,5 @@
 #!/bin/bash
-# run_grid.sh — run the ClubBench agent grid with a concurrency cap.
+# run_grid.sh — run the FromPitch2Board agent grid with a concurrency cap.
 #
 # Each job is one full episode (run_agent.sh), which picks its own free MCP
 # port, so N jobs run in parallel. Results land in runs/<...>/score.json.

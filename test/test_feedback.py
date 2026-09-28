@@ -27,7 +27,7 @@ def _free_port():
 def server():
     port = _free_port()
     proc = subprocess.Popen(
-        [str(BIN_DIR / "clubbench-mcp"), "--port", str(port)],
+        [str(BIN_DIR / "frompitch2board-mcp"), "--port", str(port)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     for _ in range(50):

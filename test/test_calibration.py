@@ -5,7 +5,7 @@ reference variance (σ≈0) report raw + Δ only, never a forced ±1."""
 import json
 from pathlib import Path
 
-from conftest import clubbench, parse_blocks
+from conftest import frompitch2board, parse_blocks
 
 DATA = Path("data")
 # Coach and Manager keep separate calibration files (different references).
@@ -16,7 +16,7 @@ def test_calibrate_writes_frozen_stats(tmp_path):
     # Write to a temp path so the shared calibration file is never touched by
     # tests (other tests read it concurrently — no torn-read races).
     out = tmp_path / "cal.json"
-    r = clubbench("calibrate", "--world", "compact", "--clubs", "0",
+    r = frompitch2board("calibrate", "--world", "compact", "--clubs", "0",
                   "--scenarios", "rebuild", "--count", "12", "--days", "100",
                   "--mode", "manager", "--out", str(out))
     assert r.returncode == 0, r.stderr
@@ -31,7 +31,7 @@ def test_calibrate_writes_frozen_stats(tmp_path):
 def test_score_uses_calibration_for_z():
     # In the compact world the Greedy reference never overspends / never leaves
     # the healthy squad range → those dims have σ≈0 → Z is None (raw + Δ only).
-    r = clubbench("score", "--seeds", "42,43", "--days", "100", "--world", "compact", "--club", "0")
+    r = frompitch2board("score", "--seeds", "42,43", "--days", "100", "--world", "compact", "--club", "0")
     assert r.returncode == 0, r.stderr
     block = parse_blocks(r.stdout)[0]
     # A dimension with real variance still gets a calibration-based Z.
@@ -47,7 +47,7 @@ def test_score_falls_back_without_calibration():
     # but the cell lookup misses and scoring falls back to the eval-seed
     # reference std. No file moves, so no race with other tests reading the
     # shared calibration.
-    r = clubbench("score", "--seeds", "42,43", "--days", "100", "--world", "compact",
+    r = frompitch2board("score", "--seeds", "42,43", "--days", "100", "--world", "compact",
                   "--club", "1", "--scenario", "crisis")
     assert r.returncode == 0, r.stderr
     block = parse_blocks(r.stdout)[0]

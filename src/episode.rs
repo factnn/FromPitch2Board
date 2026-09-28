@@ -5,7 +5,7 @@
 //! each stop is exactly one agent step. A full season therefore produces
 //! hundreds of steps, and every decision's consequences compound over time
 //! (injuries, morale, finances, squad building) — the long-horizon property
-//! that ClubBench exists to measure.
+//! that FromPitch2Board exists to measure.
 //!
 //! The whole episode is reproducible: `Episode::new(seed, horizon)` seeds the
 //! world AND the entire trajectory.

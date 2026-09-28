@@ -1,4 +1,4 @@
-//! Baseline agents for the ClubBench environment.
+//! Baseline agents for the FromPitch2Board environment.
 
 use domain::player::{Player, Position};
 use ofm_core::game::Game;

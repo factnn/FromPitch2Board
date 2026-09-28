@@ -335,25 +335,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
-name = "clubbench"
-version = "0.1.0"
-dependencies = [
- "axum",
- "chrono",
- "clap",
- "db",
- "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
- "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
- "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
- "rand",
- "rmcp",
- "serde",
- "serde_json",
- "tokio",
- "tower",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -646,6 +627,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "frompitch2board"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "clap",
+ "db",
+ "domain 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "engine 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "ofm_core 0.3.0 (git+https://github.com/factnn/openfootmanager.git?rev=095a07f2)",
+ "rand",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
 ]
 
 [[package]]

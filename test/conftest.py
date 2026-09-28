@@ -1,10 +1,10 @@
-"""Shared test helpers for ClubBench.
+"""Shared test helpers for FromPitch2Board.
 
 Each feature has its own test_*.py that runs the compiled Rust binaries via
 subprocess and asserts on their output. The binaries must be built first
 (they live in this repo, depending on ofm_core via a pinned git dependency):
 
-    cd clubbench-repo && cargo build -p clubbench -p ofm-headless
+    cd frompitch2board-repo && cargo build -p frompitch2board -p ofm-headless
 """
 
 import subprocess
@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 BIN_DIR = REPO / "target" / "debug"
-CLUBBENCH = BIN_DIR / "clubbench"
+FROMPITCH2BOARD = BIN_DIR / "frompitch2board"
 HEADLESS = BIN_DIR / "ofm-headless"
 
 
@@ -26,13 +26,13 @@ def run(binary, *args, timeout=600):
     )
 
 
-def clubbench(*args, timeout=600):
-    """Run the `clubbench` binary."""
-    return run(CLUBBENCH, *args, timeout=timeout)
+def frompitch2board(*args, timeout=600):
+    """Run the `frompitch2board` binary."""
+    return run(FROMPITCH2BOARD, *args, timeout=timeout)
 
 
 def parse_blocks(stdout):
-    """Parse `clubbench score` output into [(candidate, {dim: (cand,ref,delta,ci,z)})].
+    """Parse `frompitch2board score` output into [(candidate, {dim: (cand,ref,delta,ci,z)})].
 
     Columns in the rendered table: dim, cand μ, ref μ, Δ, Δ±CI, Z.
     """

@@ -4,7 +4,7 @@ The ProactiveManager scouts targets and bids ~1.4x market value; if the
 transfer loop works, its squad/finance metrics differ from the reference
 (buying money → squad value rises, balance drops, squad gets younger)."""
 
-from conftest import clubbench, parse_blocks
+from conftest import frompitch2board, parse_blocks
 
 
 def _proactive_block(stdout):
@@ -15,7 +15,7 @@ def _proactive_block(stdout):
 
 
 def test_proactive_buys_players():
-    r = clubbench("score", "--scenario", "rebuild", "--seeds", "42", "--days", "250", "--world", "compact", "--club", "15")
+    r = frompitch2board("score", "--scenario", "rebuild", "--seeds", "42", "--days", "250", "--world", "compact", "--club", "15")
     assert r.returncode == 0, r.stderr
     block = _proactive_block(r.stdout)
     assert block is not None, "Proactive block not found"

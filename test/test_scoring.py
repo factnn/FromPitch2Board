@@ -6,11 +6,11 @@ scoring math. (Z is not necessarily 0: with a calibration file it is the
 reference's position relative to its own large-seed distribution.)"""
 
 import pytest
-from conftest import clubbench, parse_blocks
+from conftest import frompitch2board, parse_blocks
 
 
 def test_reference_vs_itself_paired_delta_zero():
-    r = clubbench("score", "--seeds", "42,43", "--days", "150", "--world", "compact", "--club", "0")
+    r = frompitch2board("score", "--seeds", "42,43", "--days", "150", "--world", "compact", "--club", "0")
     assert r.returncode == 0, r.stderr
     blocks = parse_blocks(r.stdout)
     assert blocks[0]["name"] == "GreedyManager"
@@ -21,7 +21,7 @@ def test_reference_vs_itself_paired_delta_zero():
 
 def test_reference_row_present():
     """The reference's own absolute outcome is reported (interpretability)."""
-    r = clubbench("score", "--seeds", "42", "--days", "150", "--world", "compact", "--club", "0")
+    r = frompitch2board("score", "--seeds", "42", "--days", "150", "--world", "compact", "--club", "0")
     assert r.returncode == 0, r.stderr
     blocks = parse_blocks(r.stdout)
     # The reference block's "points" ref μ is a real number (the AI-default score).

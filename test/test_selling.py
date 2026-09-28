@@ -8,7 +8,7 @@ players pushes the squad *below* the healthy range and is penalised — the
 anti-fire-sale rule. The stable cross-seed signal is a positive squad_size
 distance vs the (healthy) reference."""
 
-from conftest import clubbench, parse_blocks
+from conftest import frompitch2board, parse_blocks
 
 
 def _selling_block(stdout):
@@ -19,7 +19,7 @@ def _selling_block(stdout):
 
 
 def test_selling_trims_toward_range():
-    r = clubbench("score", "--seeds", "42,43,44", "--days", "350", "--world", "compact", "--club", "15")
+    r = frompitch2board("score", "--seeds", "42,43,44", "--days", "350", "--world", "compact", "--club", "15")
     assert r.returncode == 0, r.stderr
     block = _selling_block(r.stdout)
     assert block is not None, "Selling block not found"
@@ -31,7 +31,7 @@ def test_selling_trims_toward_range():
 
 
 def test_selling_dimension_reported():
-    r = clubbench("score", "--seeds", "42", "--days", "200", "--world", "compact", "--club", "15")
+    r = frompitch2board("score", "--seeds", "42", "--days", "200", "--world", "compact", "--club", "15")
     assert r.returncode == 0, r.stderr
     block = _selling_block(r.stdout)
     assert block is not None

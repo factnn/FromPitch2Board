@@ -1,4 +1,4 @@
-//! Paired-seed, reference-relative scoring — the ClubBench evaluation protocol.
+//! Paired-seed, reference-relative scoring — the FromPitch2Board evaluation protocol.
 //!
 //! Protocol (see docs/scenarios.md):
 //!   1. Every agent plays the SAME set of evaluation seeds (paired design).
@@ -73,7 +73,7 @@ impl Calibration {
     }
 }
 
-/// The frozen reference policy: ClubBench-Greedy-v1 (a transparent, simple,
+/// The frozen reference policy: FromPitch2Board-Greedy-v1 (a transparent, simple,
 /// deterministic greedy manager). Code is fixed and
 /// public; the leaderboard is anchored on this, never on the current SOTA.
 /// The greedy baseline doubles as the difficulty anchor: Z=0 ≈ the simple
@@ -260,7 +260,7 @@ const DIMENSIONS_COACH: [Dimension; 2] = [
 
 /// Build the frozen calibration for a set of (scenario, club) cells: run the
 /// track's Greedy reference on a large seed set and record each dimension's μ
-/// and σ. This is `clubbench calibrate --mode`; the result is saved to
+/// and σ. This is `frompitch2board calibrate --mode`; the result is saved to
 /// `data/calibration-{world}-{Mode}.json` and reused by every agent.
 pub fn build_calibration(
     world: WorldSize,
@@ -306,7 +306,7 @@ fn squad_size_distance(size: usize) -> f64 {
     }
 }
 
-/// The dimensions scored by ClubBench (sport + finance + squad), following the
+/// The dimensions scored by FromPitch2Board (sport + finance + squad), following the
 /// The dimension structure:
 ///   - directional higher: points, net_value (net worth change), squad_value;
 ///   - finance as *constraints*: only budget violations are penalised

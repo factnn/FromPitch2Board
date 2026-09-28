@@ -5,7 +5,7 @@ relegation), the board never fires the agent mid-episode (re-hired + counted),
 and youth-academy recruits top up drained squads — so a 10-season trajectory
 stays playable and every season snapshot has real metrics."""
 
-from conftest import clubbench
+from conftest import frompitch2board
 
 
 def _snapshot_rows(stdout):
@@ -14,7 +14,7 @@ def _snapshot_rows(stdout):
 
 
 def test_two_seasons_medium_roll_over():
-    r = clubbench("multi", "--seasons", "2", "--policy", "greedy",
+    r = frompitch2board("multi", "--seasons", "2", "--policy", "greedy",
                   "--scenario", "rebuild", "--club", "75", "--seed", "42",
                   "--world", "medium")
     assert r.returncode == 0, r.stderr
@@ -29,7 +29,7 @@ def test_two_seasons_medium_roll_over():
 
 def test_ten_seasons_compact_no_panic():
     # Long horizon exercises the youth top-up (compact squads drain fast).
-    r = clubbench("multi", "--seasons", "10", "--policy", "greedy",
+    r = frompitch2board("multi", "--seasons", "10", "--policy", "greedy",
                   "--scenario", "rebuild", "--club", "0", "--seed", "42",
                   "--world", "compact")
     assert r.returncode == 0, r.stderr

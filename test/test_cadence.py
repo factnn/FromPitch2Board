@@ -1,11 +1,11 @@
 """Decision cadence: the episode stops at matchdays/offers/market and each stop
 is one agent step — a season is a decision trajectory, not a fast-forward."""
 
-from conftest import clubbench, parse_blocks
+from conftest import frompitch2board, parse_blocks
 
 
 def test_cadence_produces_trajectory():
-    r = clubbench("cadence", "--seeds", "42", "--days", "200", "--world", "compact")
+    r = frompitch2board("cadence", "--seeds", "42", "--days", "200", "--world", "compact")
     assert r.returncode == 0, r.stderr
     assert "steps" in r.stdout
     # The managed agent takes a non-trivial number of decisions over 200 days
@@ -14,7 +14,7 @@ def test_cadence_produces_trajectory():
 
 
 def test_score_produces_dimensions():
-    r = clubbench("score", "--seeds", "42", "--days", "150", "--world", "compact", "--club", "0")
+    r = frompitch2board("score", "--seeds", "42", "--days", "150", "--world", "compact", "--club", "0")
     assert r.returncode == 0, r.stderr
     blocks = parse_blocks(r.stdout)
     assert blocks, "no candidate blocks found"

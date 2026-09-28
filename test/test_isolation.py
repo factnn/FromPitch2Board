@@ -3,8 +3,8 @@ interface (MCP / mcp_call.py), never other runs' trajectories or the env
 source.
 
 Mechanism: the repo is chmod 700 (root-only) and cc/codex/pi agents run as the
-unprivileged `clubbench-agent` user via setpriv, with CWD = a private workspace
-under /tmp/clubbench-ws/. llm stays root — it is a pure API loop with no shell.
+unprivileged `frompitch2board-agent` user via setpriv, with CWD = a private workspace
+under /tmp/frompitch2board-ws/. llm stays root — it is a pure API loop with no shell.
 """
 
 import json
@@ -17,11 +17,11 @@ import subprocess
 import pytest
 
 REPO = str(Path(__file__).resolve().parent.parent)
-AGENT_USER = "clubbench-agent"
+AGENT_USER = "frompitch2board-agent"
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("CLUBBENCH_TEST_ISOLATION") != "1",
-    reason="requires the production clubbench-agent user and a root-only checkout",
+    os.environ.get("FROMPITCH2BOARD_TEST_ISOLATION") != "1",
+    reason="requires the production frompitch2board-agent user and a root-only checkout",
 )
 
 
@@ -61,7 +61,7 @@ def test_agent_cannot_read_trajectories():
 
 def test_pi_binary_available_to_agent():
     r = run_as_agent(
-        "node /opt/clubbench-tools/pi-coding-agent/dist/cli.js --version")
+        "node /opt/frompitch2board-tools/pi-coding-agent/dist/cli.js --version")
     assert r.returncode == 0, r.stderr
 
 
@@ -81,7 +81,7 @@ def test_run_agent_builds_isolated_workspace():
     m = re.search(r"workspace: (\S+)", log.stdout)
     assert m, "no workspace line in output"
     run_dir = m.group(1)
-    ws = os.path.join("/tmp/clubbench-ws", os.path.basename(run_dir))
+    ws = os.path.join("/tmp/frompitch2board-ws", os.path.basename(run_dir))
     assert os.path.isdir(ws), f"workspace not created: {ws}"
     st = os.stat(ws)
     assert st.st_uid == pwd.getpwnam(AGENT_USER).pw_uid, "workspace not agent-owned"
