@@ -86,7 +86,7 @@ enum Commands {
         #[arg(required = true)]
         files: Vec<String>,
     },
-    /// Composition Gap (the design notes §3): given a set of coach + manager trajectory
+    /// Composition Gap: given a set of coach + manager trajectory
     /// files (one per agent/seed), report BOTH the relative gap G_Z (standardized)
     /// and the raw composition delta G_Δ = Δ_coach − Δ_manager in league points,
     /// each vs the per-track Greedy reference.
@@ -95,7 +95,7 @@ enum Commands {
         #[arg(required = true)]
         files: Vec<String>,
     },
-    /// Build the frozen Reference Calibration Set (the design notes §2): run the Greedy
+    /// Build the frozen Reference Calibration Set: run the Greedy
     /// reference on many seeds per (scenario, club) cell and save μ/σ to
     /// data/calibration-{world}.json. All agents' Z then use this stable scale.
     Calibrate {
@@ -128,7 +128,7 @@ enum Commands {
         seasons: u32,
         #[arg(long, default_value_t = 400)]
         season_days: u64,
-        /// Rule policy to drive the episode (auto|proactive|selling|offersonly|passive)
+        /// Rule policy to drive the episode (auto|proactive|selling|offersonly|passive|greedy|maintenance)
         #[arg(long, default_value = "auto")]
         policy: String,
         #[arg(long, default_value = "rebuild")]
@@ -169,7 +169,7 @@ fn main() {
     }
 }
 
-/// Composition Gap (the design notes §3): for each agent with BOTH a coach and a manager
+/// Composition Gap: for each agent with BOTH a coach and a manager
 /// trajectory on the same seeds, report the relative gap G_Z and the raw
 /// composition delta G_Δ = Δ_coach − Δ_manager (in league points), each vs the
 /// per-track Greedy reference. Example: coach LLM 75 / Greedy 68 (+7), manager
@@ -259,7 +259,7 @@ fn gap(files: &[String]) {
     }
 }
 
-/// Build and save the frozen calibration set (the design notes §2), per track.
+/// Build and save the frozen calibration set, per track.
 fn calibrate(world_str: &str, clubs_str: &str, scenarios_str: &str, count: u64, days: u64, mode_str: &str, out: Option<&str>) {
     use clubbench::env::AgentMode;
     use clubbench::score::build_calibration;
@@ -341,6 +341,9 @@ fn multi_season(
 
     let mut policy: Box<dyn Policy> = match policy_name {
         "greedy" => Box::new(GreedyManager::new(domain::team::PlayStyle::Balanced)),
+        // Greedy rules plus roster maintenance: while the fit squad is below
+        // 22, every position group counts as needy. Control policy only.
+        "maintenance" => Box::new(GreedyManager::with_min_squad(domain::team::PlayStyle::Balanced, 22)),
         "proactive" => Box::new(ProactiveManager::new(domain::team::PlayStyle::Attacking)),
         "selling" => Box::new(SellingManager::new(domain::team::PlayStyle::Attacking)),
         "offersonly" => Box::new(OffersOnlyManager),

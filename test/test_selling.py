@@ -3,7 +3,7 @@ one completes a sale — the squad shrinks and cash comes in.
 
 SellingManager transfer-lists its most valuable backups (Action::ListPlayer),
 accepts offers at/above 0.9× market value, and does not buy. Under the
-target-range squad scoring (the design notes §1: healthy [22, 26]), selling too many
+target-range squad scoring, selling too many
 players pushes the squad *below* the healthy range and is penalised — the
 anti-fire-sale rule. The stable cross-seed signal is a positive squad_size
 distance vs the (healthy) reference."""

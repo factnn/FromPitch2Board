@@ -8,6 +8,7 @@ message instead of silently applied).
 
 import json
 import os
+from pathlib import Path
 import socket
 import subprocess
 import tempfile
@@ -15,7 +16,7 @@ import time
 
 import pytest
 
-REPO = "[repo]"
+REPO = str(Path(__file__).resolve().parent.parent)
 BIN = os.path.join(REPO, "target/debug/clubbench-mcp")
 
 

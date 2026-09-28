@@ -1,11 +1,11 @@
-# ClubBench — the benchmark layer. This crate is the environment + harness +
+# FromPitch2Board — the benchmark layer. This crate is the environment + harness +
 # scoring; the football simulator (ofm_core) is a pinned git dependency on the
 # OpenFoot Manager fork, NOT forked into this repo.
 [package]
 name = "clubbench"
 version = "0.1.0"
 edition = "2021"
-description = "ClubBench: headless deterministic football-management agent environment + benchmark"
+description = "FromPitch2Board: headless deterministic football-management agent environment and benchmark"
 
 [dependencies]
 ofm_core = { git = "https://github.com/factnn/openfootmanager.git", rev = "095a07f2" }

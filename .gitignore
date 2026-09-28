@@ -1,5 +1,5 @@
-# Openfoot Manager simulator fork — separate git repo
-# (clone separately, or add as a submodule when the env harness depends on it)
+# Openfoot Manager simulator fork — separate git repo, pulled as a pinned
+# git dependency (see Cargo.toml). Clone separately only if you want to patch it.
 /openfootmanager/
 
 # Harness local state
@@ -24,13 +24,35 @@ venv/
 *.swp
 .DS_Store
 
-# Agent run artifacts
+# Agent run artifacts (trajectories, scores, accounting)
 runs/
 
-# Reference packs — local research material, not part of the repo
+# Manuscript and research notes — local-only, not part of this repository
+/FromPitch2Board/
+/paper/
+/docs/
+/anonymous_release/
+/FromPitch2Board_freeze/
+/artifacts/
+
+# Reference material — local-only
 /ClubBench_reference_pack*/
+/ref_benchmark/
+
+# Local notes and scratch — not part of this repository
+/local/
 
 # Scratch
 flashinferbench.pdf
-.log
+*.log
+frompitch_layout_*.png
+frompitch_review_*.png
+FromPitch2Board-anonymous-review.*
+FromPitch2Board_Figure1_fixed.pdf
 
+# Manuscript tooling — local-only, kept out of the public tree
+/agents/plot_curve.py
+/agents/human_ui.py
+/scripts/plot_paper_figs.py
+/scripts/plot_dashboard_figs.py
+/scripts/audit_main_leaderboard.py

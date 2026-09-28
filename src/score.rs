@@ -18,7 +18,7 @@ use crate::episode_agents::{GreedyCoach, GreedyManager, Policy};
 use crate::run::{run_episode_cadence_with_mode, CadenceResult, ClubMetrics};
 use domain::team::PlayStyle;
 
-/// Frozen reference calibration (the design notes §2): the Greedy reference's per-cell,
+/// Frozen reference calibration: the Greedy reference's per-cell,
 /// per-dimension mean and std over a LARGE seed set (100-200 seeds), so Z uses
 /// a stable scale instead of the few evaluation seeds — which can degenerate to
 /// `sign(Δ)` when `ref_std ≈ 0` and lose all magnitude.
@@ -74,7 +74,7 @@ impl Calibration {
 }
 
 /// The frozen reference policy: ClubBench-Greedy-v1 (a transparent, simple,
-/// deterministic greedy manager — see the design notes §三). Code is fixed and
+/// deterministic greedy manager). Code is fixed and
 /// public; the leaderboard is anchored on this, never on the current SOTA.
 /// The greedy baseline doubles as the difficulty anchor: Z=0 ≈ the simple
 /// heuristic, Z>0 = beats it.
@@ -94,7 +94,7 @@ pub fn reference_for(mode: AgentMode) -> Box<dyn crate::episode_agents::Policy> 
     }
 }
 
-/// How a dimension enters the score (see the design notes §1): only a few metrics are
+/// How a dimension enters the score: only a few metrics are
 /// genuinely "higher is better"; finance dims are *constraints* (only
 /// overspending is penalised), and squad-shape dims are diagnostics or a
 /// target range — never "as low as possible".
@@ -184,7 +184,7 @@ fn t95(n: usize) -> f64 {
 }
 
 /// Score one dimension over paired seeds. `cal` is the frozen calibration
-/// statistic for this (scenario, club) cell when available (the design notes §2):
+/// statistic for this (scenario, club) cell when available:
 ///   - Z = (cand_mean − cal.mu) / cal.sigma  — a stable, cross-agent-comparable
 ///     scale from the Greedy reference's large-seed distribution;
 ///   - if cal.sigma ≈ 0 → the dim has no identifiable reference variance → no
@@ -295,7 +295,7 @@ pub fn build_calibration(
 }
 
 /// Distance of a squad size from the healthy range [22, 26]: 0 inside it,
-/// positive outside (lack of depth < 22, hoarding > 26). the design notes §1.
+/// positive outside (lack of depth < 22, hoarding > 26).
 fn squad_size_distance(size: usize) -> f64 {
     if size < 22 {
         (22 - size) as f64
@@ -307,7 +307,7 @@ fn squad_size_distance(size: usize) -> f64 {
 }
 
 /// The dimensions scored by ClubBench (sport + finance + squad), following the
-/// the design notes §1 structure:
+/// The dimension structure:
 ///   - directional higher: points, net_value (net worth change), squad_value;
 ///   - finance as *constraints*: only budget violations are penalised
 ///     (transfer over-spend, wage over-budget) — not "spend as little as
@@ -382,7 +382,7 @@ pub fn collect_paired_for_mode(
 ) -> (Vec<PairedSample>, Vec<DimReport>) {
     let mut reference = reference_for(mode);
     let dims = dimensions_for(mode);
-    // Frozen calibration for this (scenario, club) cell, if built (the design notes §2).
+    // Frozen calibration for this (scenario, club) cell, if built.
     // Coach and Manager use separate calibration files (different references).
     let scenario = budget.name();
     let club = match pick {

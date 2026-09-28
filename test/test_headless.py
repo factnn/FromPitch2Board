@@ -1,6 +1,15 @@
 """Headless season runner (ofm-headless): drives a full season without a GUI."""
 
+import os
+
+import pytest
+
 from conftest import HEADLESS, run
+
+pytestmark = pytest.mark.skipif(
+    not os.path.exists(HEADLESS),
+    reason="ofm-headless not built (run: cargo build --workspace)",
+)
 
 
 def test_headless_runs_a_season():

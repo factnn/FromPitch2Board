@@ -14,7 +14,7 @@ import sys
 import time
 
 URL = "http://127.0.0.1:53705/mcp"
-SCRIPT = "[repo]/agents/mcp_call.py"
+SCRIPT = str(Path(__file__).resolve().parent / "mcp_call.py")
 PLAY_STYLE = "Attacking"
 
 
@@ -93,13 +93,13 @@ def main():
     score = mcp("score")
     print("SCORE:", json.dumps(score, indent=2))
     # Write trajectory
-    traj = "[repo]/runs/title-club110-seed49-cc-coach-20260814_000849/trajectory.json"
+    traj = sys.argv[1]
     try:
         mcp("dump", {"path": traj, "agent": "cc-coach"})
         print(f"trajectory -> {traj}")
     except Exception as e:
         print(f"dump failed: {e}")
-    with open("[repo]/runs/title-club110-seed49-cc-coach-20260814_000849/match_log.json", "w") as f:
+    with open(Path(traj).with_name("match_log.json"), "w") as f:
         json.dump(results, f, indent=2)
 
 

@@ -18,7 +18,7 @@ def test_score_produces_dimensions():
     assert r.returncode == 0, r.stderr
     blocks = parse_blocks(r.stdout)
     assert blocks, "no candidate blocks found"
-    # the design notes §1 structure: directional (points/net_value/squad_value),
+    # Dimension structure: directional (points/net_value/squad_value),
     # budget-constraint (violations), and target-range (squad_size) are scored;
     # avg_age is diagnostic — reported raw with Z = None.
     for dim in ("points", "net_value", "squad_value", "transfer_budget_violation", "wage_budget_violation", "squad_size"):

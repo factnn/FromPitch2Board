@@ -47,7 +47,7 @@ def call_llm(prompt: str, model: str) -> tuple[str, dict, str]:
     """Call the Anthropic-compatible messages API.
 
     Returns (text, usage, stop_reason). Following the same-ceiling principle
-    (see the design notes): max_tokens is a GENEROUS ceiling so the models'
+    max_tokens is a generous ceiling so the models'
     actual token consumption is their own choice; finish_reason and reasoning
     tokens are recorded so the paper can answer "does Pro win by thinking
     more" with data. Env knobs: MAX_TOKENS / THINKING_BUDGET (defaults are

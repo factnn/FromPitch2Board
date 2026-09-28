@@ -9,14 +9,20 @@ under /tmp/clubbench-ws/. llm stays root — it is a pure API loop with no shell
 
 import json
 import os
+from pathlib import Path
 import pwd
 import re
 import subprocess
 
 import pytest
 
-REPO = "[repo]"
+REPO = str(Path(__file__).resolve().parent.parent)
 AGENT_USER = "clubbench-agent"
+
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CLUBBENCH_TEST_ISOLATION") != "1",
+    reason="requires the production clubbench-agent user and a root-only checkout",
+)
 
 
 def run_as_agent(cmd: str):
@@ -86,7 +92,7 @@ def test_run_agent_builds_isolated_workspace():
 
     # The pi prompt appendix must not leak any repository path.
     prompt = open(os.path.join(ws, "prompt.md")).read()
-    assert "/repo" not in prompt, "prompt leaks a repo path"
+    assert REPO not in prompt, "prompt leaks a repo path"
 
     # metadata records pi's resolved model (PI_MODEL default), not None.
     meta = json.load(open(os.path.join(run_dir, "metadata.json")))

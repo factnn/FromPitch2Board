@@ -205,7 +205,7 @@ impl ScenarioBudget {
         }
     }
 
-    /// The archetype's fixed club-strength rank (the design notes §scenario): each
+    /// The archetype's fixed club-strength rank: each
     /// scenario is a coherent management situation — a specific squad state +
     /// budget + mandate — rather than an arbitrary (tier × budget) grid cell.
     /// crisis = weakest squad, moneyball = mid, rebuild = upper-mid, title = elite.

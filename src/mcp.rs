@@ -48,6 +48,12 @@ fn write_checkpoint(cp_dir: &str, seed: u64, ep: &Episode) -> Result<(), String>
     let dir = std::path::Path::new(cp_dir);
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let db_path = dir.join("game.db");
+    // Start from an empty database: the persistence writer inserts a whole game
+    // snapshot, so rewriting an existing file violates its primary keys and
+    // every checkpoint after the first would fail.
+    if db_path.exists() {
+        std::fs::remove_file(&db_path).map_err(|e| e.to_string())?;
+    }
     let db = db::game_database::GameDatabase::open(&db_path)?;
     db::game_persistence::GamePersistenceWriter::write_game(&db, &ep.game, "checkpoint", "checkpoint")?;
     let (horizon_days, target_seasons, seasons_completed, advanced_days, step,

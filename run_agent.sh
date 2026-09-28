@@ -42,6 +42,7 @@ SKIP_AGENT=false
 MAX_AGENT_TURNS=""   # unset → derived from --days (single-knob design)
 MATCH_STOPS=0        # --match-stops: L1 in-match checkpoints (30'/HT/60'/75')
 ANON=true
+RESUME_FROM=""       # --resume-from <dir>: continue an interrupted episode
 # Resolved once so the launch line and metadata.json agree on pi's model.
 # Exported: the metadata python heredoc only sees os.environ.
 PI_MODEL="${PI_MODEL:-deepseek-v4-pro}"
@@ -63,6 +64,7 @@ while [[ $# -gt 0 ]]; do
         --match-stops) MATCH_STOPS=1; shift ;;
         --max-turns) MAX_AGENT_TURNS="$2"; shift 2 ;;
         --named) ANON=false; shift ;;
+        --resume-from) RESUME_FROM="$2"; shift 2 ;;
         --skip-agent) SKIP_AGENT=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -119,6 +121,15 @@ TS=$(date +%Y%m%d_%H%M%S)
 # share a run dir (that collided once and killed both) — add a random suffix.
 RUN_DIR="${SCRIPT_DIR}/runs/${SCENARIO}-club${CLUB}-seed${SEED}-${AGENT}-${MODE}-${TS}-$RANDOM"
 mkdir -p "$RUN_DIR"
+
+# Resume: seed the run's checkpoint dir from a previous run before the MCP
+# server starts, so `reset` picks up the stored episode instead of a fresh one.
+# The checkpoint's own horizon_days applies; pass a matching --days.
+if [[ -n "$RESUME_FROM" ]]; then
+    mkdir -p "$RUN_DIR/checkpoint"
+    cp -a "$RESUME_FROM"/. "$RUN_DIR/checkpoint/"
+    echo "[resume] seeded checkpoint from $RESUME_FROM"
+fi
 
 # ---- .mcp.json for Claude Code / Codex ----
 cat > "$RUN_DIR/.mcp.json" <<JSON
@@ -252,15 +263,8 @@ chown -R clubbench-agent:clubbench-agent "$WS_DIR" 2>/dev/null || true
 # location (npm churn has removed that one before). CLAUDE_CMD is an array so
 # "node /path/cli.js" works as well as a plain binary.
 CLAUDE_BIN="${CLAUDE_BIN:-}"
-CC_CLI_JS=[local-tool]
-CC_NODE=[local-tool]
 if [[ -n "$CLAUDE_BIN" ]]; then
     CLAUDE_CMD=("$CLAUDE_BIN")
-elif [[ -f "$CC_CLI_JS" && -x "$CC_NODE" ]]; then
-    # Preferred BEFORE `command -v claude`: cc runs unprivileged as
-    # clubbench-agent, whose PATH may lack a root-only `claude` binary; the
-    # claude_tool env is world-readable so node+cli.js works for the agent too.
-    CLAUDE_CMD=("$CC_NODE" "$CC_CLI_JS")
 elif command -v claude >/dev/null 2>&1; then
     CLAUDE_CMD=(claude)
 else
@@ -312,7 +316,7 @@ fi
 # stop early, so loop a "continue" prompt until the episode reports done.
 # ALL agents run unprivileged (clubbench-agent) inside their isolated
 # workspace — same sandbox surface for every harness, no exceptions.
-AGENT_PATH="/opt/clubbench-tools:[local-tool]"
+AGENT_PATH="${AGENT_PATH:-/usr/local/bin:/usr/bin:/bin}"
 launch_agent() {
     (export HOME="$WS_DIR" PATH="$AGENT_PATH" IS_SANDBOX=1
      setpriv --reuid clubbench-agent --regid clubbench-agent --init-groups \
@@ -437,7 +441,7 @@ meta = {
     "seed": int(seed), "scenario": scenario, "club": int(club),
     "world": world, "track": mode, "horizon_days": int(days), "seasons": int(seasons),
     "anonymized": anon == "true",
-    "env_commit_clubbench": git_rev("[repo]"),
+    "env_commit_clubbench": git_rev(os.environ.get("CLUBBENCH_REPO", os.getcwd())),
     "started_ts": start_ts,
     "wall_time_s": round(time.time() - float(start_ts), 2),
     "completed": score_ok,

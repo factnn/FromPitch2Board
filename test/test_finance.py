@@ -1,4 +1,4 @@
-"""Finance scoring (the design notes §1): value created (net_value) is directional;
+"""Finance scoring: value created (net_value) is directional;
 net_spend and wage_bill are *constraints* — only budget violations are scored,
 never "spend as little as possible". avg_age is a diagnostic (raw only)."""
 

@@ -1,4 +1,4 @@
-"""Composition Gap (the design notes §3): given a coach + manager trajectory pair for the
+"""Composition Gap: given a coach + manager trajectory pair for the
 same agent, report BOTH the relative gap G_Z and the raw composition delta
 G_Δ = Δ_coach − Δ_manager (in league points), each vs the per-track Greedy
 reference."""

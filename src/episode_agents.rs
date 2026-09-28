@@ -497,14 +497,14 @@ impl Policy for OffersOnlyManager {
 }
 
 // ---------------------------------------------------------------------------
-// Greedy baselines (the frozen reference; see the design notes).
+// Greedy baselines (the frozen reference).
 //
 // Deterministic given the observation + internal state: no RNG. Acts only on
 // what any agent sees — fuzzed scout ratings and coarse potential bands — so
 // the comparison with LLM agents stays fair (partial observability applies).
 // ---------------------------------------------------------------------------
 
-/// Match utility for the Greedy coach (the design notes §三):
+/// Match utility for the Greedy coach:
 ///   U_i = ability + role_fit − fatigue − injury_risk
 /// Injured players are dropped; a tired player (low condition/fitness) loses
 /// rating and naturally rotates out — this is the fatigue-based rotation.
@@ -559,7 +559,7 @@ impl Policy for GreedyCoach {
     }
 }
 
-/// The frozen Greedy manager = Greedy coach + market logic (the design notes §三):
+/// The frozen Greedy manager = Greedy coach + market logic:
 ///   - Need(p) per group = max(0, target − current_strength) with
 ///     target = squad average + 4 (improve every position beyond the mean);
 ///   - scout unscouted targets in needy positions;
@@ -571,6 +571,11 @@ pub struct GreedyManager {
     pub play_style: PlayStyle,
     bid_on: std::collections::HashSet<String>,
     listed: std::collections::HashSet<String>,
+    /// Control setting only. When set, a fit squad smaller than this makes
+    /// every position group count as needy, so the market logic restores
+    /// headcount instead of waiting for a quality gap. `None` is the frozen
+    /// reference and leaves every rule below unchanged.
+    min_squad: Option<usize>,
 }
 
 impl GreedyManager {
@@ -579,6 +584,18 @@ impl GreedyManager {
             play_style,
             bid_on: Default::default(),
             listed: Default::default(),
+            min_squad: None,
+        }
+    }
+
+    /// Same rules as [`GreedyManager::new`], plus explicit roster maintenance.
+    /// Used as the long-horizon control policy, never as the reference.
+    pub fn with_min_squad(play_style: PlayStyle, min_squad: usize) -> Self {
+        Self {
+            play_style,
+            bid_on: Default::default(),
+            listed: Default::default(),
+            min_squad: Some(min_squad),
         }
     }
 
@@ -593,6 +610,9 @@ impl GreedyManager {
             *e = e.max(p.ovr as f64);
         }
         let mut needs = std::collections::HashMap::new();
+        // A thin squad makes every group needy, so scouting and bidding run to
+        // restore headcount rather than only to close a quality gap.
+        let thin = self.min_squad.map(|m| fit.len() < m).unwrap_or(false);
         for g in [
             Position::Goalkeeper,
             Position::Defender,
@@ -600,7 +620,8 @@ impl GreedyManager {
             Position::Forward,
         ] {
             let s = strength.get(&g).copied().unwrap_or(0.0);
-            needs.insert(g, (target - s).max(0.0));
+            let q = (target - s).max(0.0);
+            needs.insert(g, if thin { q.max(1.0) } else { q });
         }
         needs
     }

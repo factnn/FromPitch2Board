@@ -85,7 +85,7 @@ run_one_job() {
     # --tag keeps grids of the same cells but different models/configs apart
     # (e.g. pro vs flash); the skip check reads this same log file.
     OUT="runs/${SC}-seed${S}-${A}-${M}-grid${TAG:+-${TAG}}.ts"
-    PREV=$(grep -oE "[repo]/runs/[^ ]+" "$OUT.log" 2>/dev/null | head -1)
+    PREV=$(grep -oE "[^ ]*/runs/[^ ]+" "$OUT.log" 2>/dev/null | head -1)
     if [[ -n "$PREV" && -f "$PREV/score.json" ]]; then
         # Skip only if the previous run REALLY finished (score.json alone is
         # written even when the agent hit max-turns mid-season). The check
@@ -113,7 +113,7 @@ run_one_job() {
             --seed "$S" --world "$W" --days "$D" --seasons "$SEASONS" $MATCH_STOPS \
             > "$OUT.log" 2>&1
     fi
-    D2=$(grep -oE "[repo]/runs/[^ ]+" "$OUT.log" | head -1)
+    D2=$(grep -oE "[^ ]*/runs/[^ ]+" "$OUT.log" | head -1)
     if [[ -n "$D2" && -f "$D2/score.json" ]]; then
         python3 scripts/summarize_score.py "$D2/score.json" "$A" "$M" "$C" "$S" "$SC"
     else

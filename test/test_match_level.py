@@ -9,13 +9,14 @@ the keyed RNG, and the unchanged default cadence.
 
 import json
 import os
+from pathlib import Path
 import socket
 import subprocess
 import time
 
 import pytest
 
-REPO = "[repo]"
+REPO = str(Path(__file__).resolve().parent.parent)
 BIN = os.path.join(REPO, "target/debug/clubbench-mcp")
 
 

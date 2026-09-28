@@ -1,4 +1,4 @@
-"""Reference Calibration Set (the design notes §2): Greedy's per-cell μ/σ over many seeds
+"""Reference Calibration Set: Greedy's per-cell μ/σ over many seeds
 is frozen, and scoring Z uses that stable scale. Dims with no identifiable
 reference variance (σ≈0) report raw + Δ only, never a forced ±1."""
 
